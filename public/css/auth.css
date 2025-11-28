@@ -1,12 +1,38 @@
 :root {
-    --fpt-orange: #ff7300;
-    --fpt-orange-dark: #d95a00;
+    --fpt-orange: #0d6efd;
+    --fpt-orange-dark: #0a58ca;
+    --fpt-orange-light: #39a0ff;
 }
 
 body {
-    /* FPT orange gradient */
-    background: linear-gradient(120deg, var(--fpt-orange) 0%, rgb(250, 156, 5) 100%);
+    /* Primary blue gradient */
+    background: linear-gradient(120deg, var(--fpt-orange) 0%, var(--fpt-orange-light) 100%);
     min-height: 100vh;
+}
+
+body.welcome-page {
+    --fpt-orange: #16a34a;
+    --fpt-orange-dark: #15803d;
+    --fpt-orange-light: #34d399;
+    background: linear-gradient(120deg, #16a34a 0%, #34d399 100%);
+}
+
+body.welcome-page .welcome-card {
+    box-shadow: 0 8px 32px rgba(22, 163, 74, 0.18);
+}
+
+body.welcome-page .btn-welcome {
+    box-shadow: 0 4px 16px rgba(22, 163, 74, 0.2);
+}
+
+body.welcome-page .btn-welcome:hover,
+body.welcome-page .btn-welcome:active,
+body.welcome-page .btn-welcome:focus {
+    box-shadow: 0 7px 32px rgba(22, 163, 74, 0.28);
+}
+
+body.welcome-page .feature-card:hover {
+    box-shadow: 0 8px 24px rgba(22, 163, 74, 0.22);
 }
 
 /* ===== Common Auth Styles ===== */
@@ -21,12 +47,12 @@ body {
 .auth-card {
     background: #fff;
     border-radius: 22px;
-    box-shadow: 0 8px 32px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 8px 32px rgba(13, 110, 253, 0.13);
     overflow: hidden;
 }
 
 .auth-header {
-    background: linear-gradient(90deg, var(--fpt-orange) 55%, #ff9d00 100%);
+    background: linear-gradient(90deg, var(--fpt-orange) 55%, var(--fpt-orange-light) 100%);
     padding: 2rem 1.5rem 1.2rem 1.5rem;
     text-align: center;
 }
@@ -82,12 +108,12 @@ a.text-fpt-orange:hover {
 .login-card {
     background: #fff;
     border-radius: 22px;
-    box-shadow: 0 8px 32px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 8px 32px rgba(13, 110, 253, 0.13);
     overflow: hidden;
 }
 
 .login-header {
-    background: linear-gradient(90deg, var(--fpt-orange) 55%, #ff9d00 100%);
+    background: linear-gradient(90deg, var(--fpt-orange) 55%, var(--fpt-orange-light) 100%);
     padding: 2rem 1.5rem 1.2rem 1.5rem;
 }
 
@@ -109,7 +135,7 @@ a.text-fpt-orange:hover {
 
 .form-control:focus {
     border-color: var(--fpt-orange);
-    box-shadow: 0 0 0 0.15rem rgba(255, 115, 0, 0.15);
+    box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
 }
 
 .input-group-text {
@@ -123,7 +149,7 @@ a.text-fpt-orange:hover {
     background: var(--fpt-orange);
     color: #fff;
     border: none;
-    box-shadow: 0 4px 16px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 4px 16px rgba(13, 110, 253, 0.18);
     transition: background 0.2s, box-shadow 0.2s;
 }
 
@@ -131,7 +157,7 @@ a.text-fpt-orange:hover {
 .btn-login:active {
     background: var(--fpt-orange-dark);
     color: #fff;
-    box-shadow: 0 7px 32px rgba(255, 115, 0, 0.21);
+    box-shadow: 0 7px 32px rgba(13, 110, 253, 0.28);
 }
 
 .login-divider {
@@ -155,14 +181,14 @@ a.text-fpt-orange:hover {
 .welcome-card {
     background: #fff;
     border-radius: 22px;
-    box-shadow: 0 8px 32px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 8px 32px rgba(13, 110, 253, 0.13);
     overflow: hidden;
     max-width: 1200px;
     width: 100%;
 }
 
 .welcome-header {
-    background: linear-gradient(90deg, var(--fpt-orange) 55%, #ff9d00 100%);
+    background: linear-gradient(90deg, var(--fpt-orange) 55%, var(--fpt-orange-light) 100%);
     padding: 2.5rem 2rem 2rem 2rem;
     text-align: center;
 }
@@ -211,7 +237,7 @@ a.text-fpt-orange:hover {
     background: var(--fpt-orange);
     color: #fff;
     border: none;
-    box-shadow: 0 4px 16px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 4px 16px rgba(13, 110, 253, 0.18);
     transition: all 0.3s ease;
     font-size: 1.1rem;
 }
@@ -221,7 +247,7 @@ a.text-fpt-orange:hover {
 .btn-welcome:focus {
     background: var(--fpt-orange-dark);
     color: #fff;
-    box-shadow: 0 7px 32px rgba(255, 115, 0, 0.21);
+    box-shadow: 0 7px 32px rgba(13, 110, 253, 0.28);
     transform: translateY(-2px);
 }
 
@@ -236,7 +262,7 @@ a.text-fpt-orange:hover {
 
 .feature-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(255, 115, 0, 0.15);
+    box-shadow: 0 8px 24px rgba(13, 110, 253, 0.18);
 }
 
 .feature-card .card-body {
@@ -272,14 +298,14 @@ a.text-fpt-orange:hover {
 .not-found-card {
     background: #fff;
     border-radius: 22px;
-    box-shadow: 0 8px 32px rgba(255, 115, 0, 0.13);
+    box-shadow: 0 8px 32px rgba(13, 110, 253, 0.13);
     overflow: hidden;
     max-width: 600px;
     width: 100%;
 }
 
 .not-found-header {
-    background: linear-gradient(90deg, var(--fpt-orange) 55%, #ff9d00 100%);
+    background: linear-gradient(90deg, var(--fpt-orange) 55%, var(--fpt-orange-light) 100%);
     padding: 2.5rem 2rem 2rem 2rem;
     text-align: center;
 }

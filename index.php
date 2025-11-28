@@ -32,8 +32,13 @@ match ($act) {
     // Đường dẫn đăng nhập, đăng xuất
     'login' => $authController->login(),
     'check-login' => $authController->checkLogin(),
-    'register' => $authController->register(),
-    'handle-register' => $authController->handleRegister(),
+    'admin-guide-list' => $authController->showGuideList(),
+    'admin-guide-create' => $authController->showGuideCreationForm(),
+    'admin-guide-store' => $authController->handleGuideCreation(),
+    'admin-guide-edit' => $authController->showGuideEditForm(),
+    'admin-guide-update' => $authController->handleGuideUpdate(),
+    'admin-guide-delete' => $authController->handleGuideDeletion(),
+    'admin-guide-detail' => $authController->showGuideDetail(),
     'logout' => $authController->logout(),
 
     // Đường dẫn không tồn tại

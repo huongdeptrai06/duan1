@@ -32,9 +32,14 @@ class HomeController
         $currentUser = getCurrentUser();
 
         // Hiển thị view home với dữ liệu title và user
+        $assignedTours = $currentUser->isGuide()
+            ? $this->getAssignedToursFor($currentUser)
+            : [];
+
         view('home', [
             'title' => 'Trang chủ - Website Quản Lý Tour',
             'user' => $currentUser,
+            'assignedTours' => $assignedTours,
         ]);
     }
 
@@ -46,5 +51,11 @@ class HomeController
         view('not_found', [
             'title' => 'Không tìm thấy trang',
         ]);
+    }
+
+    private function getAssignedToursFor(User $user): array
+    {
+        // Tạm thời trả về danh sách trống. Có thể kết nối CSDL ở bước kế tiếp.
+        return [];
     }
 }

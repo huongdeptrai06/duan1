@@ -23,55 +23,93 @@ ob_start();
         </div>
       </div>
       <div class="card-body">
-        <?php if (isLoggedIn()): ?>
+        <?php if ($user->isAdmin()): ?>
           <div class="alert alert-success" role="alert">
             <h4 class="alert-heading">
               <i class="bi bi-check-circle-fill me-2"></i>
-              Đăng nhập thành công!
+              Xin chào, Admin <?= htmlspecialchars($user->name) ?>!
             </h4>
             <p class="mb-0">
-              Xin chào, <strong><?= htmlspecialchars($user->name) ?></strong>! 
-              Bạn đã đăng nhập với quyền <strong><?= $user->isAdmin() ? 'Admin' : 'Hướng dẫn viên' ?></strong>.
+              Bạn đang xem bảng điều khiển với đầy đủ chức năng quản trị hệ thống tour.
+            </p>
+          </div>
+
+          <div class="row g-3 mt-2">
+            <div class="col-md-4">
+              <div class="info-box bg-primary text-white shadow-sm">
+                <span class="info-box-icon"><i class="bi bi-airplane-engines"></i></span>
+                <div class="info-box-content">
+                  <span class="info-box-text">Quản lý tour</span>
+                  <span class="info-box-number small">Theo dõi và cập nhật tour</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="info-box bg-success text-white shadow-sm">
+                <span class="info-box-icon"><i class="bi bi-people-fill"></i></span>
+                <div class="info-box-content">
+                  <span class="info-box-text">Khách hàng</span>
+                  <span class="info-box-number small">Thông tin & đặt tour</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="info-box bg-warning text-white shadow-sm">
+                <span class="info-box-icon"><i class="bi bi-person-gear"></i></span>
+                <div class="info-box-content">
+                  <span class="info-box-text">Hướng dẫn viên</span>
+                  <span class="info-box-number small">Cấp & quản lý tài khoản</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        <?php else: ?>
+          <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">
+              <i class="bi bi-person-walking me-2"></i>
+              Xin chào, <?= htmlspecialchars($user->name) ?>!
+            </h4>
+            <p class="mb-0">
+              Đây là trang dành riêng cho hướng dẫn viên. Bạn chỉ xem được lộ trình được phân công.
+              Mọi cài đặt hệ thống vẫn nằm ở phía Admin.
             </p>
           </div>
 
           <div class="mt-4">
             <h3 class="mb-3">
-              <i class="bi bi-info-circle-fill me-2 text-primary"></i>
-              Thông tin tài khoản
+              <i class="bi bi-geo-alt-fill me-2 text-primary"></i>
+              Lịch tour được giao
             </h3>
-            <div class="list-group">
-              <div class="list-group-item">
-                <div class="d-flex w-100 justify-content-between">
-                  <h5 class="mb-1">
-                    <i class="bi bi-envelope me-2"></i>
-                    Email
-                  </h5>
-                </div>
-                <p class="mb-1"><?= htmlspecialchars($user->email) ?></p>
-              </div>
-              <div class="list-group-item">
-                <div class="d-flex w-100 justify-content-between">
-                  <h5 class="mb-1">
-                    <i class="bi bi-person-badge me-2"></i>
-                    Vai trò
-                  </h5>
-                </div>
-                <p class="mb-1">
-                  <?= $user->isAdmin() ? 'Quản trị viên' : 'Hướng dẫn viên' ?>
-                </p>
-              </div>
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Tour</th>
+                    <th>Ngày khởi hành</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if (empty($assignedTours)): ?>
+                    <tr>
+                      <td colspan="3" class="text-center text-muted">
+                        Chưa có tour nào được phân công. Vui lòng liên hệ Admin để được cập nhật.
+                      </td>
+                    </tr>
+                  <?php else: ?>
+                    <?php foreach ($assignedTours as $tour): ?>
+                      <tr>
+                        <td><?= htmlspecialchars($tour['name']) ?></td>
+                        <td><?= htmlspecialchars($tour['start_date']) ?></td>
+                        <td>
+                          <span class="badge bg-primary"><?= htmlspecialchars($tour['status']) ?></span>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                </tbody>
+              </table>
             </div>
-          </div>
-        <?php else: ?>
-          <div class="alert alert-warning" role="alert">
-            <h4 class="alert-heading">
-              <i class="bi bi-exclamation-triangle-fill me-2"></i>
-              Chưa đăng nhập
-            </h4>
-            <p class="mb-0">
-              Vui lòng <a href="<?= BASE_URL ?>?act=login" class="alert-link">đăng nhập</a> để sử dụng đầy đủ chức năng.
-            </p>
           </div>
         <?php endif; ?>
       </div>

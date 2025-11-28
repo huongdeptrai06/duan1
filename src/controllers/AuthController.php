@@ -169,10 +169,17 @@ class AuthController
         } else {
             try {
                 $stmt = $pdo->prepare(
-                    'SELECT id, name, email, role, status, created_at
-                     FROM users
-                     WHERE role IN (:guideRole, :legacyRole)
-                     ORDER BY created_at DESC'
+                    'SELECT u.id,
+                            u.name,
+                            u.email,
+                            u.role,
+                            u.status,
+                            u.created_at,
+                            gp.guide_group
+                     FROM users u
+                     LEFT JOIN guide_profiles gp ON gp.user_id = u.id
+                     WHERE u.role IN (:guideRole, :legacyRole)
+                     ORDER BY u.created_at DESC'
                 );
                 $stmt->execute([
                     'guideRole' => 'guide',
@@ -199,6 +206,7 @@ class AuthController
             ],
             'guides' => $guides,
             'errors' => $errors,
+            'guideGroups' => $this->getGuideGroups(),
             'successMessage' => $statusMessage && $statusMessage['type'] === 'success'
                 ? $statusMessage['text']
                 : null,
@@ -233,6 +241,7 @@ class AuthController
             ],
             'guide' => $guide,
             'profile' => $profileData,
+            'guideGroups' => $this->getGuideGroups(),
         ]);
     }
 
@@ -251,6 +260,8 @@ class AuthController
             $this->redirectToGuideList('not-found');
         }
 
+        $profile = $this->findGuideProfile($guideId);
+
         view('admin.edit_guide', [
             'title' => 'Chỉnh sửa hướng dẫn viên',
             'pageTitle' => 'Chỉnh sửa hướng dẫn viên',
@@ -260,6 +271,8 @@ class AuthController
                 ['label' => 'Chỉnh sửa', 'active' => true],
             ],
             'guide' => $guide,
+            'profileData' => $profile ?? [],
+            'guideGroups' => $this->getGuideGroups(),
         ]);
     }
 
@@ -287,6 +300,15 @@ class AuthController
         $status = (int)($_POST['status'] ?? 1) === 1 ? 1 : 0;
         $password = $_POST['password'] ?? '';
         $passwordConfirmation = $_POST['password_confirmation'] ?? '';
+
+        $existingProfile = $this->findGuideProfile($guideId) ?? [];
+        $profileFallback = [
+            'full_name' => $existingProfile['full_name'] ?? ($guide['name'] ?? ''),
+            'email' => $existingProfile['contact_email'] ?? ($guide['email'] ?? ''),
+            'guide_group' => $existingProfile['guide_group'] ?? '',
+        ];
+        $profileInput = $this->collectGuideProfileInput($_POST, $profileFallback);
+        $profileErrors = $this->validateGuideProfileInput($profileInput);
 
         $errors = [];
 
@@ -332,6 +354,8 @@ class AuthController
             }
         }
 
+        $errors = array_merge($errors, $profileErrors);
+
         if (!empty($errors)) {
             view('admin.edit_guide', [
                 'title' => 'Chỉnh sửa hướng dẫn viên',
@@ -347,6 +371,8 @@ class AuthController
                     'email' => $email,
                     'status' => $status,
                 ],
+                'profileData' => $profileInput,
+                'guideGroups' => $this->getGuideGroups(),
                 'errors' => $errors,
             ]);
             return;
@@ -391,9 +417,17 @@ class AuthController
                     'email' => $email,
                     'status' => $status,
                 ],
+                'profileData' => $profileInput,
+                'guideGroups' => $this->getGuideGroups(),
                 'errors' => $errors,
             ]);
             return;
+        }
+
+        try {
+            $this->saveGuideProfile($guideId, $profileInput);
+        } catch (RuntimeException $e) {
+            error_log('Guide profile update skipped: ' . $e->getMessage());
         }
 
         $this->redirectToGuideList('updated');
@@ -454,6 +488,12 @@ class AuthController
         $password = $_POST['password'] ?? '';
         $passwordConfirmation = $_POST['password_confirmation'] ?? '';
 
+        $profileInput = $this->collectGuideProfileInput($_POST, [
+            'full_name' => $name,
+            'email' => $email,
+        ]);
+        $profileErrors = $this->validateGuideProfileInput($profileInput);
+
         $errors = [];
 
         if ($name === '') {
@@ -471,6 +511,8 @@ class AuthController
         if ($password !== $passwordConfirmation) {
             $errors[] = 'Xác nhận mật khẩu không khớp.';
         }
+
+        $errors = array_merge($errors, $profileErrors);
 
         $formData = [
             'name' => $name,
@@ -500,6 +542,7 @@ class AuthController
             $this->renderGuideCreationPage([
                 'errors' => $errors,
                 'formData' => $formData,
+                'profileData' => $profileInput,
             ]);
             return;
         }
@@ -522,12 +565,21 @@ class AuthController
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            $newGuideId = (int)$pdo->lastInsertId();
+            if ($newGuideId > 0) {
+                try {
+                    $this->saveGuideProfile($newGuideId, $profileInput);
+                } catch (RuntimeException $e) {
+                    error_log('Guide profile create skipped: ' . $e->getMessage());
+                }
+            }
         } catch (PDOException $e) {
             error_log('Guide create insert failed: ' . $e->getMessage());
             $errors[] = 'Không thể tạo tài khoản. Vui lòng thử lại sau.';
             $this->renderGuideCreationPage([
                 'errors' => $errors,
                 'formData' => $formData,
+                'profileData' => $profileInput,
             ]);
             return;
         }
@@ -535,6 +587,7 @@ class AuthController
         $this->renderGuideCreationPage([
             'successMessage' => 'Đã tạo tài khoản hướng dẫn viên thành công.',
             'formData' => [],
+            'profileData' => [],
         ]);
     }
 
@@ -548,10 +601,131 @@ class AuthController
                 ['label' => 'Cấp tài khoản hướng dẫn viên', 'active' => true],
             ],
             'formData' => [],
+            'profileData' => [],
             'errors' => [],
+            'guideGroups' => $this->getGuideGroups(),
         ];
 
         view('admin.create_guide', array_merge($defaultData, $data));
+    }
+
+    private function collectGuideProfileInput(array $source, array $fallback = []): array
+    {
+        $guideGroups = $this->getGuideGroups();
+        $defaultGroup = array_key_first($guideGroups);
+
+        return [
+            'full_name' => trim($source['profile_full_name'] ?? ($fallback['full_name'] ?? '')),
+            'dob' => trim($source['profile_dob'] ?? ''),
+            'gender' => trim($source['profile_gender'] ?? ''),
+            'avatar_url' => trim($source['profile_avatar_url'] ?? ''),
+            'id_number' => trim($source['profile_id_number'] ?? ''),
+            'address' => trim($source['profile_address'] ?? ''),
+            'phone' => trim($source['profile_phone'] ?? ''),
+            'email' => trim($source['profile_email'] ?? ($fallback['email'] ?? '')),
+            'license' => trim($source['profile_license'] ?? ''),
+            'guide_type' => trim($source['profile_guide_type'] ?? ''),
+            'guide_group' => $source['profile_guide_group'] ?? ($fallback['guide_group'] ?? $defaultGroup),
+            'languages' => trim($source['profile_languages'] ?? ''),
+            'experience_years' => trim($source['profile_experience_years'] ?? ''),
+            'experience_detail' => trim($source['profile_experience_detail'] ?? ''),
+            'notable_tours' => trim($source['profile_notable_tours'] ?? ''),
+            'tour_history' => trim($source['profile_tour_history'] ?? ''),
+            'strengths' => trim($source['profile_strengths'] ?? ''),
+            'rating' => trim($source['profile_rating'] ?? ''),
+            'health_status' => trim($source['profile_health_status'] ?? ''),
+        ];
+    }
+
+    private function validateGuideProfileInput(array $profile): array
+    {
+        $errors = [];
+
+        if ($profile['full_name'] === '') {
+            $errors[] = 'Vui lòng nhập họ tên đầy đủ cho hồ sơ hướng dẫn viên.';
+        }
+
+        $guideGroups = $this->getGuideGroups();
+        if ($profile['guide_group'] !== '' && !array_key_exists($profile['guide_group'], $guideGroups)) {
+            $errors[] = 'Nhóm hướng dẫn viên không hợp lệ.';
+        }
+
+        if ($profile['experience_years'] !== '' && !ctype_digit((string)$profile['experience_years'])) {
+            $errors[] = 'Số năm kinh nghiệm phải là số nguyên không âm.';
+        }
+
+        if ($profile['rating'] !== '') {
+            if (!is_numeric($profile['rating'])) {
+                $errors[] = 'Đánh giá năng lực phải là số.';
+            } else {
+                $rating = (float)$profile['rating'];
+                if ($rating < 0 || $rating > 5) {
+                    $errors[] = 'Đánh giá năng lực nên nằm trong khoảng 0 - 5.';
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    private function saveGuideProfile(int $userId, array $profileInput): void
+    {
+        $pdo = getDB();
+        if ($pdo === null) {
+            throw new RuntimeException('Không thể kết nối cơ sở dữ liệu.');
+        }
+
+        $normalized = [
+            'full_name' => $profileInput['full_name'] ?: null,
+            'dob' => $profileInput['dob'] ?: null,
+            'gender' => $profileInput['gender'] ?: null,
+            'avatar_url' => $profileInput['avatar_url'] ?: null,
+            'id_number' => $profileInput['id_number'] ?: null,
+            'address' => $profileInput['address'] ?: null,
+            'phone' => $profileInput['phone'] ?: null,
+            'contact_email' => $profileInput['email'] ?: null,
+            'license' => $profileInput['license'] ?: null,
+            'guide_type' => $profileInput['guide_type'] ?: null,
+            'guide_group' => $profileInput['guide_group'] ?: null,
+            'languages' => $profileInput['languages'] ?: null,
+            'experience_years' => $profileInput['experience_years'] !== '' ? (int)$profileInput['experience_years'] : null,
+            'experience_detail' => $profileInput['experience_detail'] ?: null,
+            'notable_tours' => $profileInput['notable_tours'] ?: null,
+            'tour_history' => $profileInput['tour_history'] ?: null,
+            'strengths' => $profileInput['strengths'] ?: null,
+            'rating' => $profileInput['rating'] !== '' ? (float)$profileInput['rating'] : null,
+            'health_status' => $profileInput['health_status'] ?: null,
+        ];
+
+        try {
+            $columns = array_keys($normalized);
+            $insertColumns = implode(', ', $columns);
+            $insertParams = implode(', ', array_map(fn($col) => ':' . $col, $columns));
+            $updateAssignments = implode(', ', array_map(fn($col) => "{$col} = VALUES({$col})", $columns));
+
+            $stmt = $pdo->prepare(
+                "INSERT INTO guide_profiles (user_id, {$insertColumns})
+                 VALUES (:user_id, {$insertParams})
+                 ON DUPLICATE KEY UPDATE {$updateAssignments}"
+            );
+
+            $stmt->execute(array_merge(['user_id' => $userId], $normalized));
+        } catch (PDOException $e) {
+            // Nếu bảng chưa tồn tại hoặc lỗi khác, ghi log để admin xử lý
+            error_log('Save guide profile failed: ' . $e->getMessage());
+        }
+    }
+
+    private function getGuideGroups(): array
+    {
+        return [
+            'noi_dia' => 'Nội địa',
+            'quoc_te' => 'Quốc tế',
+            'chuyen_tuyen' => 'Chuyên tuyến',
+            'chuyen_khach_doan' => 'Chuyên khách đoàn',
+            'du_lich_sinh_thai' => 'Du lịch sinh thái',
+            'du_lich_mao_hiem' => 'Du lịch mạo hiểm',
+        ];
     }
 
     private function findGuideById(int $id): ?array
@@ -590,8 +764,10 @@ class AuthController
 
         try {
             $stmt = $pdo->prepare(
-                'SELECT user_id, full_name, dob, gender, id_number, address, phone, license,
-                        guide_type, languages, experience_years, notable_tours, strengths
+                'SELECT user_id, full_name, dob, gender, avatar_url, id_number, address, phone,
+                        contact_email, license, guide_type, guide_group, languages,
+                        experience_years, experience_detail, notable_tours, tour_history,
+                        strengths, rating, health_status
                  FROM guide_profiles
                  WHERE user_id = :user_id
                  LIMIT 1'
@@ -608,23 +784,31 @@ class AuthController
 
     private function buildGuideProfileData(array $guide, ?array $profile): array
     {
-        $data = [
+        $guideGroups = $this->getGuideGroups();
+        $groupKey = $profile['guide_group'] ?? null;
+
+        return [
             'full_name' => $profile['full_name'] ?? $guide['name'] ?? 'Chưa cập nhật',
             'dob' => $profile['dob'] ?? null,
             'gender' => $profile['gender'] ?? null,
+            'avatar_url' => $profile['avatar_url'] ?? null,
             'id_number' => $profile['id_number'] ?? null,
             'address' => $profile['address'] ?? null,
             'phone' => $profile['phone'] ?? null,
-            'email' => $guide['email'] ?? null,
+            'email' => $profile['contact_email'] ?? $guide['email'] ?? null,
             'license' => $profile['license'] ?? null,
             'guide_type' => $profile['guide_type'] ?? null,
+            'guide_group' => $groupKey,
+            'guide_group_label' => $groupKey && isset($guideGroups[$groupKey]) ? $guideGroups[$groupKey] : null,
             'languages' => $profile['languages'] ?? null,
             'experience_years' => $profile['experience_years'] ?? null,
+            'experience_detail' => $profile['experience_detail'] ?? null,
             'notable_tours' => $profile['notable_tours'] ?? null,
+            'tour_history' => $profile['tour_history'] ?? null,
             'strengths' => $profile['strengths'] ?? null,
+            'rating' => $profile['rating'] ?? null,
+            'health_status' => $profile['health_status'] ?? null,
         ];
-
-        return $data;
     }
 
     private function redirectToGuideList(?string $status = null): void

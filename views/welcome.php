@@ -75,6 +75,7 @@ $content = ob_get_clean();
 view('layouts.AuthLayout', [
     'title' => $title ?? 'Website Quản Lý Tour Du Lịch',
     'content' => $content,
+    'bodyClass' => 'welcome-page',
 ]);
 ?>
 

@@ -96,10 +96,17 @@ ob_start();
                     </a>
                 </div>
                 <div class="text-center mt-3">
-                    <span class="text-muted me-2">Chưa có tài khoản?</span>
-                    <a href="<?= BASE_URL ?>register" class="text-decoration-none text-primary fw-semibold">
-                        <i class="bi bi-person-plus me-1"></i>Đăng ký ngay
-                    </a>
+                    <div class="alert alert-info py-3 mb-0" role="alert">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                            <div class="text-start">
+                                <div class="fw-semibold">Chưa có tài khoản hướng dẫn viên?</div>
+                                <div class="small mb-0">
+                                    Kính gửi Admin, vui lòng cấp tài khoản cho hướng dẫn viên giúp tôi vì mục đăng ký đã được gỡ bỏ.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

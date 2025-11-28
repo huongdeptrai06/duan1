@@ -34,6 +34,7 @@
             <p>Dashboard</p>
           </a>
         </li>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-airplane-engines"></i>
@@ -74,7 +75,6 @@
             </li>
           </ul>
         </li>
-        <?php if (isAdmin()): ?>
           <li class="nav-item">
             <a href="#" class="nav-link">
               <i class="nav-icon bi bi-person-gear"></i>
@@ -85,12 +85,25 @@
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="<?= BASE_URL . 'admin-guide-list' ?>" class="nav-link">
                   <i class="nav-icon bi bi-circle"></i>
-                  <p>Danh sách Người dùng</p>
+                  <p>Danh sách hướng dẫn viên</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="<?= BASE_URL . 'admin-guide-create' ?>" class="nav-link">
+                  <i class="nav-icon bi bi-circle"></i>
+                  <p>Cấp tài khoản hướng dẫn viên</p>
                 </a>
               </li>
             </ul>
+          </li>
+        <?php else: ?>
+          <li class="nav-item">
+            <a href="<?= BASE_URL . 'home' ?>" class="nav-link">
+              <i class="nav-icon bi bi-geo-alt-fill"></i>
+              <p>Lịch tour của tôi</p>
+            </a>
           </li>
         <?php endif; ?>
         <li class="nav-header">HỆ THỐNG</li>
