@@ -147,28 +147,305 @@ class AuthController
         exit;
     }
 
-    // Hiển thị form đăng ký tài khoản
-    public function register()
+    // Hiển thị form để admin tạo tài khoản hướng dẫn viên
+    public function showGuideCreationForm(): void
     {
-        if (isLoggedIn()) {
-            header('Location: ' . BASE_URL . 'home');
-            exit;
+        requireAdmin();
+        $this->renderGuideCreationPage();
+    }
+
+    // Hiển thị danh sách tài khoản hướng dẫn viên cho admin
+    public function showGuideList(): void
+    {
+        requireAdmin();
+
+        $guides = [];
+        $errors = [];
+        $statusCode = $_GET['status'] ?? null;
+        $pdo = getDB();
+
+        if ($pdo === null) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu. Vui lòng thử lại.';
+        } else {
+            try {
+                $stmt = $pdo->prepare(
+                    'SELECT id, name, email, role, status, created_at
+                     FROM users
+                     WHERE role IN (:guideRole, :legacyRole)
+                     ORDER BY created_at DESC'
+                );
+                $stmt->execute([
+                    'guideRole' => 'guide',
+                    'legacyRole' => 'huong_dan_vien',
+                ]);
+                $guides = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                error_log('Guide list query failed: ' . $e->getMessage());
+                $errors[] = 'Không thể tải danh sách hướng dẫn viên.';
+            }
         }
 
-        $redirect = $_GET['redirect'] ?? BASE_URL . 'home';
+        $statusMessage = $this->resolveGuideStatusMessage($statusCode);
+        if ($statusMessage && $statusMessage['type'] === 'error') {
+            $errors[] = $statusMessage['text'];
+        }
 
-        view('admin.register', [
-            'title' => 'Đăng ký tài khoản',
-            'redirect' => $redirect,
-            'roles' => $this->getAssignableRoles(),
+        view('admin.guide_list', [
+            'title' => 'Danh sách hướng dẫn viên',
+            'pageTitle' => 'Danh sách hướng dẫn viên',
+            'breadcrumb' => [
+                ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                ['label' => 'Danh sách hướng dẫn viên', 'active' => true],
+            ],
+            'guides' => $guides,
+            'errors' => $errors,
+            'successMessage' => $statusMessage && $statusMessage['type'] === 'success'
+                ? $statusMessage['text']
+                : null,
         ]);
     }
 
-    // Xử lý submit đăng ký
-    public function handleRegister()
+    // Hiển thị chi tiết một hướng dẫn viên
+    public function showGuideDetail(): void
     {
+        requireAdmin();
+
+        $guideId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if ($guideId <= 0) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $guide = $this->findGuideById($guideId);
+        if (!$guide) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $profile = $this->findGuideProfile($guideId);
+        $profileData = $this->buildGuideProfileData($guide, $profile);
+
+        view('admin.guide_detail', [
+            'title' => 'Thông tin hướng dẫn viên',
+            'pageTitle' => 'Thông tin hướng dẫn viên',
+            'breadcrumb' => [
+                ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                ['label' => 'Danh sách hướng dẫn viên', 'url' => BASE_URL . 'admin-guide-list'],
+                ['label' => htmlspecialchars($guide['name'] ?? 'Chi tiết'), 'active' => true],
+            ],
+            'guide' => $guide,
+            'profile' => $profileData,
+        ]);
+    }
+
+    // Hiển thị form chỉnh sửa tài khoản hướng dẫn viên
+    public function showGuideEditForm(): void
+    {
+        requireAdmin();
+        $guideId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+        if ($guideId <= 0) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $guide = $this->findGuideById($guideId);
+        if (!$guide) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        view('admin.edit_guide', [
+            'title' => 'Chỉnh sửa hướng dẫn viên',
+            'pageTitle' => 'Chỉnh sửa hướng dẫn viên',
+            'breadcrumb' => [
+                ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                ['label' => 'Danh sách hướng dẫn viên', 'url' => BASE_URL . 'admin-guide-list'],
+                ['label' => 'Chỉnh sửa', 'active' => true],
+            ],
+            'guide' => $guide,
+        ]);
+    }
+
+    // Xử lý cập nhật thông tin hướng dẫn viên
+    public function handleGuideUpdate(): void
+    {
+        requireAdmin();
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ' . BASE_URL . 'register');
+            $this->redirectToGuideList();
+        }
+
+        $guideId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        if ($guideId <= 0) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $guide = $this->findGuideById($guideId);
+        if (!$guide) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $status = (int)($_POST['status'] ?? 1) === 1 ? 1 : 0;
+        $password = $_POST['password'] ?? '';
+        $passwordConfirmation = $_POST['password_confirmation'] ?? '';
+
+        $errors = [];
+
+        if ($name === '') {
+            $errors[] = 'Vui lòng nhập họ tên.';
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Email không hợp lệ.';
+        }
+
+        $updatePassword = false;
+        if ($password !== '') {
+            if (strlen($password) < 6) {
+                $errors[] = 'Mật khẩu mới phải có ít nhất 6 ký tự.';
+            }
+
+            if ($password !== $passwordConfirmation) {
+                $errors[] = 'Xác nhận mật khẩu không khớp.';
+            }
+
+            $updatePassword = true;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu. Vui lòng thử lại.';
+        }
+
+        if (empty($errors) && $pdo !== null) {
+            try {
+                $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email AND id != :id LIMIT 1');
+                $stmt->execute([
+                    'email' => $email,
+                    'id' => $guideId,
+                ]);
+                if ($stmt->fetch()) {
+                    $errors[] = 'Email này đã được sử dụng bởi tài khoản khác.';
+                }
+            } catch (PDOException $e) {
+                error_log('Guide update uniqueness failed: ' . $e->getMessage());
+                $errors[] = 'Có lỗi xảy ra khi kiểm tra email.';
+            }
+        }
+
+        if (!empty($errors)) {
+            view('admin.edit_guide', [
+                'title' => 'Chỉnh sửa hướng dẫn viên',
+                'pageTitle' => 'Chỉnh sửa hướng dẫn viên',
+                'breadcrumb' => [
+                    ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                    ['label' => 'Danh sách hướng dẫn viên', 'url' => BASE_URL . 'admin-guide-list'],
+                    ['label' => 'Chỉnh sửa', 'active' => true],
+                ],
+                'guide' => [
+                    'id' => $guideId,
+                    'name' => $name,
+                    'email' => $email,
+                    'status' => $status,
+                ],
+                'errors' => $errors,
+            ]);
+            return;
+        }
+
+        try {
+            $updateFields = 'name = :name, email = :email, status = :status, updated_at = :updated_at';
+            $params = [
+                'name' => $name,
+                'email' => $email,
+                'status' => $status,
+                'updated_at' => date('Y-m-d H:i:s'),
+                'id' => $guideId,
+                'guideRole' => 'guide',
+                'legacyRole' => 'huong_dan_vien',
+            ];
+
+            if ($updatePassword) {
+                $updateFields .= ', password = :password';
+                $params['password'] = password_hash($password, PASSWORD_BCRYPT);
+            }
+
+            $stmt = $pdo->prepare(
+                "UPDATE users SET {$updateFields} WHERE id = :id AND role IN (:guideRole, :legacyRole)"
+            );
+            $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log('Guide update failed: ' . $e->getMessage());
+            $errors[] = 'Không thể cập nhật tài khoản. Vui lòng thử lại.';
+
+            view('admin.edit_guide', [
+                'title' => 'Chỉnh sửa hướng dẫn viên',
+                'pageTitle' => 'Chỉnh sửa hướng dẫn viên',
+                'breadcrumb' => [
+                    ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                    ['label' => 'Danh sách hướng dẫn viên', 'url' => BASE_URL . 'admin-guide-list'],
+                    ['label' => 'Chỉnh sửa', 'active' => true],
+                ],
+                'guide' => [
+                    'id' => $guideId,
+                    'name' => $name,
+                    'email' => $email,
+                    'status' => $status,
+                ],
+                'errors' => $errors,
+            ]);
+            return;
+        }
+
+        $this->redirectToGuideList('updated');
+    }
+
+    // Xử lý xóa hướng dẫn viên
+    public function handleGuideDeletion(): void
+    {
+        requireAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectToGuideList();
+        }
+
+        $guideId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        if ($guideId <= 0) {
+            $this->redirectToGuideList('not-found');
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            $this->redirectToGuideList('db-error');
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                'DELETE FROM users WHERE id = :id AND role IN (:guideRole, :legacyRole)'
+            );
+            $stmt->execute([
+                'id' => $guideId,
+                'guideRole' => 'guide',
+                'legacyRole' => 'huong_dan_vien',
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                $this->redirectToGuideList('not-found');
+            }
+        } catch (PDOException $e) {
+            error_log('Guide deletion failed: ' . $e->getMessage());
+            $this->redirectToGuideList('db-error');
+        }
+
+        $this->redirectToGuideList('deleted');
+    }
+
+    // Xử lý việc admin tạo mới tài khoản hướng dẫn viên
+    public function handleGuideCreation(): void
+    {
+        requireAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'admin-guide-create');
             exit;
         }
 
@@ -176,9 +453,6 @@ class AuthController
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $passwordConfirmation = $_POST['password_confirmation'] ?? '';
-        $role = $_POST['role'] ?? 'admin';
-        $redirect = $_POST['redirect'] ?? BASE_URL . 'home';
-        $status = 1;
 
         $errors = [];
 
@@ -198,15 +472,9 @@ class AuthController
             $errors[] = 'Xác nhận mật khẩu không khớp.';
         }
 
-        $roles = $this->getAssignableRoles();
-        if (!array_key_exists($role, $roles)) {
-            $errors[] = 'Vai trò không hợp lệ.';
-        }
-
         $formData = [
             'name' => $name,
             'email' => $email,
-            'role' => $role,
         ];
 
         $pdo = getDB();
@@ -220,21 +488,18 @@ class AuthController
                 $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
                 $stmt->execute(['email' => $email]);
                 if ($stmt->fetch()) {
-                    $errors[] = 'Email này đã được sử dụng.';
+                    $errors[] = 'Email này đã tồn tại trong hệ thống.';
                 }
             } catch (PDOException $e) {
-                error_log('Register check failed: ' . $e->getMessage());
+                error_log('Guide create check failed: ' . $e->getMessage());
                 $errors[] = 'Có lỗi xảy ra khi kiểm tra tài khoản.';
             }
         }
 
         if (!empty($errors)) {
-            view('admin.register', [
-                'title' => 'Đăng ký tài khoản',
+            $this->renderGuideCreationPage([
                 'errors' => $errors,
                 'formData' => $formData,
-                'roles' => $roles,
-                'redirect' => $redirect,
             ]);
             return;
         }
@@ -252,46 +517,140 @@ class AuthController
                 'name' => $name,
                 'email' => $email,
                 'password' => $hashedPassword,
-                'role' => $role,
-                'status' => $status,
+                'role' => 'guide',
+                'status' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-
-            $userId = (int)$pdo->lastInsertId();
         } catch (PDOException $e) {
-            error_log('Register insert failed: ' . $e->getMessage());
+            error_log('Guide create insert failed: ' . $e->getMessage());
             $errors[] = 'Không thể tạo tài khoản. Vui lòng thử lại sau.';
-            view('admin.register', [
-                'title' => 'Đăng ký tài khoản',
+            $this->renderGuideCreationPage([
                 'errors' => $errors,
                 'formData' => $formData,
-                'roles' => $roles,
-                'redirect' => $redirect,
             ]);
             return;
         }
 
-        $user = new User([
-            'id' => $userId,
-            'name' => $name,
-            'email' => $email,
-            'role' => $role,
-            'status' => $status,
+        $this->renderGuideCreationPage([
+            'successMessage' => 'Đã tạo tài khoản hướng dẫn viên thành công.',
+            'formData' => [],
         ]);
+    }
 
-        loginUser($user);
+    private function renderGuideCreationPage(array $data = []): void
+    {
+        $defaultData = [
+            'title' => 'Cấp tài khoản hướng dẫn viên',
+            'pageTitle' => 'Cấp tài khoản hướng dẫn viên',
+            'breadcrumb' => [
+                ['label' => 'Người dùng', 'url' => BASE_URL . 'home'],
+                ['label' => 'Cấp tài khoản hướng dẫn viên', 'active' => true],
+            ],
+            'formData' => [],
+            'errors' => [],
+        ];
 
-        header('Location: ' . $redirect);
+        view('admin.create_guide', array_merge($defaultData, $data));
+    }
+
+    private function findGuideById(int $id): ?array
+    {
+        $pdo = getDB();
+        if ($pdo === null) {
+            return null;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, email, status, role, created_at
+                 FROM users
+                 WHERE id = :id AND role IN (:guideRole, :legacyRole)
+                 LIMIT 1'
+            );
+            $stmt->execute([
+                'id' => $id,
+                'guideRole' => 'guide',
+                'legacyRole' => 'huong_dan_vien',
+            ]);
+            $guide = $stmt->fetch();
+            return $guide ?: null;
+        } catch (PDOException $e) {
+            error_log('Find guide failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function findGuideProfile(int $userId): ?array
+    {
+        $pdo = getDB();
+        if ($pdo === null) {
+            return null;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT user_id, full_name, dob, gender, id_number, address, phone, license,
+                        guide_type, languages, experience_years, notable_tours, strengths
+                 FROM guide_profiles
+                 WHERE user_id = :user_id
+                 LIMIT 1'
+            );
+            $stmt->execute(['user_id' => $userId]);
+            $profile = $stmt->fetch();
+            return $profile ?: null;
+        } catch (PDOException $e) {
+            // Có thể bảng chưa tồn tại - ghi log và tiếp tục
+            error_log('Find guide profile failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function buildGuideProfileData(array $guide, ?array $profile): array
+    {
+        $data = [
+            'full_name' => $profile['full_name'] ?? $guide['name'] ?? 'Chưa cập nhật',
+            'dob' => $profile['dob'] ?? null,
+            'gender' => $profile['gender'] ?? null,
+            'id_number' => $profile['id_number'] ?? null,
+            'address' => $profile['address'] ?? null,
+            'phone' => $profile['phone'] ?? null,
+            'email' => $guide['email'] ?? null,
+            'license' => $profile['license'] ?? null,
+            'guide_type' => $profile['guide_type'] ?? null,
+            'languages' => $profile['languages'] ?? null,
+            'experience_years' => $profile['experience_years'] ?? null,
+            'notable_tours' => $profile['notable_tours'] ?? null,
+            'strengths' => $profile['strengths'] ?? null,
+        ];
+
+        return $data;
+    }
+
+    private function redirectToGuideList(?string $status = null): void
+    {
+        $url = BASE_URL . 'admin-guide-list';
+        if ($status !== null) {
+            $url .= '?status=' . urlencode($status);
+        }
+
+        header('Location: ' . $url);
         exit;
     }
 
-    private function getAssignableRoles(): array
+    private function resolveGuideStatusMessage(?string $code): ?array
     {
-        return [
-            'admin' => 'Quản trị viên',
-            'guide' => 'Hướng dẫn viên',
-        ];
+        if ($code === null) {
+            return null;
+        }
+
+        return match ($code) {
+            'updated' => ['type' => 'success', 'text' => 'Đã cập nhật tài khoản hướng dẫn viên.'],
+            'deleted' => ['type' => 'success', 'text' => 'Đã xóa tài khoản hướng dẫn viên.'],
+            'not-found' => ['type' => 'error', 'text' => 'Không tìm thấy tài khoản hướng dẫn viên.'],
+            'db-error' => ['type' => 'error', 'text' => 'Có lỗi hệ thống. Vui lòng thử lại sau.'],
+            default => null,
+        };
     }
 
     // Xử lý đăng xuất
