@@ -168,27 +168,53 @@ class AuthController
             $errors[] = 'Không thể kết nối cơ sở dữ liệu. Vui lòng thử lại.';
         } else {
             try {
-                $stmt = $pdo->prepare(
-                    'SELECT u.id,
-                            u.name,
-                            u.email,
-                            u.role,
-                            u.status,
-                            u.created_at,
-                            gp.guide_group
-                     FROM users u
-                     LEFT JOIN guide_profiles gp ON gp.user_id = u.id
-                     WHERE u.role IN (:guideRole, :legacyRole)
-                     ORDER BY u.created_at DESC'
-                );
-                $stmt->execute([
-                    'guideRole' => 'guide',
-                    'legacyRole' => 'huong_dan_vien',
-                ]);
-                $guides = $stmt->fetchAll();
+                // Thử query với LEFT JOIN guide_profiles trước
+                // Nếu bảng guide_profiles chưa tồn tại, sẽ thử query không JOIN
+                try {
+                    $stmt = $pdo->prepare(
+                        'SELECT u.id,
+                                u.name,
+                                u.email,
+                                u.role,
+                                u.status,
+                                u.created_at,
+                                gp.guide_group
+                         FROM users u
+                         LEFT JOIN guide_profiles gp ON gp.user_id = u.id
+                         WHERE u.role IN (:guideRole, :legacyRole)
+                         ORDER BY u.created_at DESC'
+                    );
+                    $stmt->execute([
+                        'guideRole' => 'guide',
+                        'legacyRole' => 'huong_dan_vien',
+                    ]);
+                    $guides = $stmt->fetchAll();
+                } catch (PDOException $joinError) {
+                    // Nếu LEFT JOIN thất bại (bảng guide_profiles chưa tồn tại), 
+                    // thử query chỉ từ bảng users
+                    error_log('Guide list JOIN failed, trying without JOIN: ' . $joinError->getMessage());
+                    
+                    $stmt = $pdo->prepare(
+                        'SELECT u.id,
+                                u.name,
+                                u.email,
+                                u.role,
+                                u.status,
+                                u.created_at,
+                                NULL as guide_group
+                         FROM users u
+                         WHERE u.role IN (:guideRole, :legacyRole)
+                         ORDER BY u.created_at DESC'
+                    );
+                    $stmt->execute([
+                        'guideRole' => 'guide',
+                        'legacyRole' => 'huong_dan_vien',
+                    ]);
+                    $guides = $stmt->fetchAll();
+                }
             } catch (PDOException $e) {
                 error_log('Guide list query failed: ' . $e->getMessage());
-                $errors[] = 'Không thể tải danh sách hướng dẫn viên.';
+                $errors[] = 'Không thể tải danh sách hướng dẫn viên: ' . htmlspecialchars($e->getMessage());
             }
         }
 
@@ -571,6 +597,10 @@ class AuthController
                     $this->saveGuideProfile($newGuideId, $profileInput);
                 } catch (RuntimeException $e) {
                     error_log('Guide profile create skipped: ' . $e->getMessage());
+                    // Lỗi lưu profile không chặn việc tạo user, chỉ log
+                } catch (Exception $e) {
+                    error_log('Guide profile create error: ' . $e->getMessage());
+                    // Lỗi lưu profile không chặn việc tạo user, chỉ log
                 }
             }
         } catch (PDOException $e) {
@@ -584,11 +614,9 @@ class AuthController
             return;
         }
 
-        $this->renderGuideCreationPage([
-            'successMessage' => 'Đã tạo tài khoản hướng dẫn viên thành công.',
-            'formData' => [],
-            'profileData' => [],
-        ]);
+        // Redirect to guide list page after successful creation
+        header('Location: ' . BASE_URL . 'admin-guide-list?status=created');
+        exit;
     }
 
     private function renderGuideCreationPage(array $data = []): void
@@ -710,9 +738,15 @@ class AuthController
             );
 
             $stmt->execute(array_merge(['user_id' => $userId], $normalized));
+            
+            // Log để debug
+            error_log('Guide profile saved successfully for user_id: ' . $userId);
         } catch (PDOException $e) {
             // Nếu bảng chưa tồn tại hoặc lỗi khác, ghi log để admin xử lý
-            error_log('Save guide profile failed: ' . $e->getMessage());
+            error_log('Save guide profile failed for user_id ' . $userId . ': ' . $e->getMessage());
+            error_log('SQL Error Info: ' . print_r($e->errorInfo, true));
+            // Ném lại exception để caller biết có lỗi
+            throw new RuntimeException('Không thể lưu thông tin hồ sơ: ' . $e->getMessage(), 0, $e);
         }
     }
 
@@ -726,6 +760,36 @@ class AuthController
             'du_lich_sinh_thai' => 'Du lịch sinh thái',
             'du_lich_mao_hiem' => 'Du lịch mạo hiểm',
         ];
+    }
+
+    private function mapGroupTypeToCode(?string $groupType): ?string
+    {
+        if (empty($groupType)) {
+            return null;
+        }
+
+        $groupType = mb_strtolower(trim($groupType));
+        
+        if (strpos($groupType, 'quốc tế') !== false || strpos($groupType, 'quoc te') !== false) {
+            return 'quoc_te';
+        }
+        if (strpos($groupType, 'nội địa') !== false || strpos($groupType, 'noi dia') !== false) {
+            return 'noi_dia';
+        }
+        if (strpos($groupType, 'tuyến') !== false || strpos($groupType, 'tuyen') !== false) {
+            return 'chuyen_tuyen';
+        }
+        if (strpos($groupType, 'đoàn') !== false || strpos($groupType, 'doan') !== false) {
+            return 'chuyen_khach_doan';
+        }
+        if (strpos($groupType, 'sinh thái') !== false || strpos($groupType, 'sinh thai') !== false) {
+            return 'du_lich_sinh_thai';
+        }
+        if (strpos($groupType, 'mạo hiểm') !== false || strpos($groupType, 'mao hiem') !== false) {
+            return 'du_lich_mao_hiem';
+        }
+        
+        return null;
     }
 
     private function findGuideById(int $id): ?array
@@ -763,18 +827,47 @@ class AuthController
         }
 
         try {
-            $stmt = $pdo->prepare(
-                'SELECT user_id, full_name, dob, gender, avatar_url, id_number, address, phone,
-                        contact_email, license, guide_type, guide_group, languages,
-                        experience_years, experience_detail, notable_tours, tour_history,
-                        strengths, rating, health_status
-                 FROM guide_profiles
-                 WHERE user_id = :user_id
-                 LIMIT 1'
-            );
+            // Query tất cả các cột có thể có
+            $stmt = $pdo->prepare('SELECT * FROM guide_profiles WHERE user_id = :user_id LIMIT 1');
             $stmt->execute(['user_id' => $userId]);
             $profile = $stmt->fetch();
-            return $profile ?: null;
+            
+            if (!$profile) {
+                error_log("Guide profile not found for user_id: {$userId}");
+                return null;
+            }
+            
+            // Log để debug
+            error_log("Guide profile found for user_id: {$userId}, columns: " . implode(', ', array_keys($profile)));
+            
+            // Map dữ liệu từ cột cũ sang format mới nếu cần
+            $mapped = [
+                'user_id' => $profile['user_id'] ?? null,
+                'full_name' => $profile['full_name'] ?? null,
+                'dob' => $profile['dob'] ?? $profile['birthdate'] ?? null,
+                'gender' => $profile['gender'] ?? null,
+                'avatar_url' => $profile['avatar_url'] ?? (!empty($profile['avatar']) ? '/uploads/guides/' . $profile['avatar'] : null),
+                'id_number' => $profile['id_number'] ?? null,
+                'address' => $profile['address'] ?? null,
+                'phone' => $profile['phone'] ?? null,
+                'contact_email' => $profile['contact_email'] ?? null,
+                'license' => $profile['license'] ?? $profile['certificate'] ?? null,
+                'guide_type' => $profile['guide_type'] ?? $profile['speciality'] ?? null,
+                'guide_group' => $profile['guide_group'] ?? $this->mapGroupTypeToCode($profile['group_type'] ?? null),
+                'languages' => $profile['languages'] ?? null,
+                'experience_years' => $profile['experience_years'] ?? null,
+                'experience_detail' => $profile['experience_detail'] ?? $profile['experience'] ?? null,
+                'notable_tours' => $profile['notable_tours'] ?? null,
+                'tour_history' => $profile['tour_history'] ?? $profile['history'] ?? null,
+                'strengths' => $profile['strengths'] ?? null,
+                'rating' => $profile['rating'] ?? null,
+                'health_status' => $profile['health_status'] ?? null,
+            ];
+            
+            // Log để debug - kiểm tra xem dữ liệu có được map đúng không
+            error_log("Mapped profile data for user_id {$userId}: " . json_encode(array_filter($mapped, fn($v) => $v !== null)));
+            
+            return $mapped;
         } catch (PDOException $e) {
             // Có thể bảng chưa tồn tại - ghi log và tiếp tục
             error_log('Find guide profile failed: ' . $e->getMessage());
@@ -785,10 +878,38 @@ class AuthController
     private function buildGuideProfileData(array $guide, ?array $profile): array
     {
         $guideGroups = $this->getGuideGroups();
+        
+        // Nếu không có profile, trả về dữ liệu từ guide
+        if (!$profile || empty($profile)) {
+            error_log("No profile data found for guide ID: " . ($guide['id'] ?? 'unknown'));
+            return [
+                'full_name' => $guide['name'] ?? 'Chưa cập nhật',
+                'dob' => null,
+                'gender' => null,
+                'avatar_url' => null,
+                'id_number' => null,
+                'address' => null,
+                'phone' => null,
+                'email' => $guide['email'] ?? null,
+                'license' => null,
+                'guide_type' => null,
+                'guide_group' => null,
+                'guide_group_label' => null,
+                'languages' => null,
+                'experience_years' => null,
+                'experience_detail' => null,
+                'notable_tours' => null,
+                'tour_history' => null,
+                'strengths' => null,
+                'rating' => null,
+                'health_status' => null,
+            ];
+        }
+        
         $groupKey = $profile['guide_group'] ?? null;
 
         return [
-            'full_name' => $profile['full_name'] ?? $guide['name'] ?? 'Chưa cập nhật',
+            'full_name' => !empty($profile['full_name']) ? $profile['full_name'] : ($guide['name'] ?? 'Chưa cập nhật'),
             'dob' => $profile['dob'] ?? null,
             'gender' => $profile['gender'] ?? null,
             'avatar_url' => $profile['avatar_url'] ?? null,
@@ -829,6 +950,7 @@ class AuthController
         }
 
         return match ($code) {
+            'created' => ['type' => 'success', 'text' => 'Đã tạo tài khoản hướng dẫn viên thành công.'],
             'updated' => ['type' => 'success', 'text' => 'Đã cập nhật tài khoản hướng dẫn viên.'],
             'deleted' => ['type' => 'success', 'text' => 'Đã xóa tài khoản hướng dẫn viên.'],
             'not-found' => ['type' => 'error', 'text' => 'Không tìm thấy tài khoản hướng dẫn viên.'],
