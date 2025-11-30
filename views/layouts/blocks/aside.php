@@ -55,6 +55,12 @@
                 <p>Thêm Tour mới</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="<?= BASE_URL . 'admin/categories' ?>" class="nav-link">
+                <i class="nav-icon bi bi-circle"></i>
+                <p>Quản lý danh mục</p>
+              </a>
+            </li>
           </ul>
         </li>
         <li class="nav-item">
@@ -85,9 +91,21 @@
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="<?= BASE_URL . 'admin/users' ?>" class="nav-link">
                   <i class="nav-icon bi bi-circle"></i>
                   <p>Danh sách Người dùng</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="<?= BASE_URL . 'admin-guide-list' ?>" class="nav-link">
+                  <i class="nav-icon bi bi-circle"></i>
+                  <p>Danh sách HDV</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="<?= BASE_URL . 'admin/guide/create' ?>" class="nav-link">
+                  <i class="nav-icon bi bi-circle"></i>
+                  <p>Cấp tài khoản HDV</p>
                 </a>
               </li>
             </ul>

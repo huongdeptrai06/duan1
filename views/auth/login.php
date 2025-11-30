@@ -95,6 +95,9 @@ ob_start();
                         Quay về trang chủ
                     </a>
                 </div>
+                <div class="text-center mt-3 text-muted fst-italic">
+                    Liên hệ quản trị viên để được cấp tài khoản hướng dẫn viên.
+                </div>
             </div>
         </div>
     </div>
