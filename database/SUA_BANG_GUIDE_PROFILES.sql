@@ -185,22 +185,19 @@ LIMIT 5;
 -- Kiểm tra cấu trúc bảng
 DESCRIBE guide_profiles;
 
--- Kiểm tra dữ liệu của một hướng dẫn viên cụ thể (thay USER_ID)
+-- Kiểm tra dữ liệu của một hướng dẫn viên cụ thể (thay USER_ID bằng ID thực tế)
 -- SELECT * FROM guide_profiles WHERE user_id = USER_ID;
 
--- Kiểm tra xem các cột cần thiết đã có chưa
+-- Kiểm tra xem dữ liệu đã được copy chưa
 SELECT 
-    COLUMN_NAME,
-    DATA_TYPE,
-    IS_NULLABLE
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'duan1'
-  AND TABLE_NAME = 'guide_profiles'
-  AND COLUMN_NAME IN (
-    'user_id', 'full_name', 'dob', 'gender', 'avatar_url', 
-    'id_number', 'address', 'phone', 'contact_email', 'license',
-    'guide_type', 'guide_group', 'languages', 'experience_years',
-    'experience_detail', 'notable_tours', 'tour_history', 'strengths',
-    'rating', 'health_status'
-  )
-ORDER BY ORDINAL_POSITION;
+    user_id,
+    full_name,
+    dob,
+    phone,
+    guide_group,
+    guide_type,
+    license,
+    languages,
+    experience_years
+FROM guide_profiles
+LIMIT 5;
