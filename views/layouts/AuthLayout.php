@@ -38,7 +38,7 @@
   </head>
   <!--end::Head-->
   <!--begin::Body-->
-  <body class="<?= isset($bodyClass) ? htmlspecialchars($bodyClass) : '' ?>">
+  <body>
     <?php if (isset($content)): ?>
       <?= $content ?>
     <?php endif; ?>

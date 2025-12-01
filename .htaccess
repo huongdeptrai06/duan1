@@ -2,7 +2,7 @@
 RewriteEngine On
 
 # Cập nhật nếu dự án chạy ở path khác
-RewriteBase /website_quan_ly_tour/
+RewriteBase /duan-1/
 
 # Route trang chủ
 RewriteRule ^$ index.php [L,QSA]

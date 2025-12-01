@@ -3,6 +3,8 @@
 Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
 
 # Dependencies
 vendor/
@@ -11,4 +13,15 @@ node_modules/
 # Cache / logs
 *.log
 *.cache
+
+# Uploads (user generated content)
+/public/uploads/guides/
 /public/images/uploads/
+
+# Environment
+.env
+.env.local
+
+# Debug files
+debug*.php
+test*.php

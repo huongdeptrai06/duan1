@@ -12,4 +12,3 @@
   <!--end::Copyright-->
 </footer>
 <!--end::Footer-->
-
