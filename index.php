@@ -12,18 +12,22 @@ require_once __DIR__ . '/src/models/User.php';
 require_once __DIR__ . '/src/models/Category.php';
 require_once __DIR__ . '/src/models/Guide.php';
 require_once __DIR__ . '/src/models/GuideLog.php';
+require_once __DIR__ . '/src/models/Booking.php';
+require_once __DIR__ . '/src/models/Tour.php';
 
 // Nạp các file chứa controller
 require_once __DIR__ . '/src/controllers/HomeController.php';
 require_once __DIR__ . '/src/controllers/AuthController.php';
 require_once __DIR__ . '/src/controllers/CategoryController.php';
 require_once __DIR__ . '/src/controllers/GuideController.php';
+require_once __DIR__ . '/src/controllers/BookingController.php';
 
 // Khởi tạo các controller
 $homeController = new HomeController();
 $authController = new AuthController();
 $categoryController = new CategoryController();
 $guideController = new GuideController();
+$bookingController = new BookingController();
 
 // Xác định route dựa trên tham số act (mặc định là trang chủ '/')
 $act = $_GET['act'] ?? '/';
@@ -65,6 +69,20 @@ match ($act) {
     'admin/guides/update' => $guideController->update(),
     'admin/guides/delete' => $guideController->delete(),
     'admin/guides/show' => $guideController->show(),
+    // Bookings management
+    'admin/bookings' => $bookingController->index(),
+    'admin/bookings/create' => $bookingController->create(),
+    'admin/bookings/store' => $bookingController->store(),
+    'admin/bookings/show' => $bookingController->show(),
+    'admin/bookings/edit' => $bookingController->edit(),
+    'admin/bookings/update' => $bookingController->update(),
+    'admin/bookings/delete' => $bookingController->delete(),
+    'admin/bookings/change-status' => $bookingController->changeStatus(),
+    'admin/bookings/assign-guide' => $bookingController->assignGuide(),
+    'admin/bookings/schedule' => $bookingController->schedule(),
+    'admin/bookings/customers' => $bookingController->customerList(),
+    'admin/bookings/add-note' => $bookingController->addNote(),
+    'admin/bookings/add-feedback' => $bookingController->addFeedback(),
     'logout' => $authController->logout(),
 
     // Đường dẫn không tồn tại
