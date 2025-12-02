@@ -4,7 +4,11 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
+<<<<<<< HEAD
             <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
+=======
+            <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+>>>>>>> origin/hieu
                 <div>
                     <h3 class="card-title mb-1">
                         <i class="bi bi-tags-fill me-2"></i>
@@ -12,7 +16,11 @@ ob_start();
                     </h3>
                     <small class="text-muted">Theo dõi trạng thái và chỉnh sửa danh mục tour.</small>
                 </div>
+<<<<<<< HEAD
                 <div class="d-flex gap-2 ms-md-auto">
+=======
+                <div class="d-flex gap-2">
+>>>>>>> origin/hieu
                     <a href="<?= BASE_URL ?>admin/categories/create" class="btn btn-primary">
                         <i class="bi bi-plus-lg me-1"></i> Thêm danh mục
                     </a>
@@ -126,3 +134,10 @@ view('layouts.AdminLayout', [
 
 
 
+<<<<<<< HEAD
+=======
+
+
+
+
+>>>>>>> origin/hieu

@@ -17,4 +17,7 @@ class GuideLog
         $this->created_at = $data['created_at'] ?? null;
     }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/hieu

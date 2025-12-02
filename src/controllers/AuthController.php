@@ -761,7 +761,11 @@ class AuthController
                     $fileName = uniqid('guide_') . '.' . $ext;
                     $target = $uploadsDir . DIRECTORY_SEPARATOR . $fileName;
                     if (move_uploaded_file($_FILES['photo']['tmp_name'], $target)) {
+<<<<<<< HEAD
                         $photoPath = 'uploads/guides/' . $fileName;
+=======
+                        $photoPath = $fileName;
+>>>>>>> origin/hieu
                     }
                 }
             }

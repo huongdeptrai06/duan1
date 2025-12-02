@@ -2,16 +2,26 @@
 ob_start();
 $formData = $formData ?? [];
 ?>
+<<<<<<< HEAD
 <div class="row">
     <div class="col-12 col-lg-11 col-xl-11 mx-auto">
         <div class="card shadow-sm border-0">
+=======
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-6">
+        <div class="card shadow-sm">
+>>>>>>> origin/hieu
             <div class="card-header bg-primary text-white">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-person-plus-fill me-2"></i>
                     Cấp tài khoản hướng dẫn viên
                 </h3>
             </div>
+<<<<<<< HEAD
             <div class="card-body p-4 p-lg-5">
+=======
+            <div class="card-body">
+>>>>>>> origin/hieu
                 <p class="text-muted">
                     Nhập thông tin bên dưới để tạo tài khoản HDV. Tài khoản được tạo sẽ nhận email thông báo đăng nhập từ quản trị viên.
                 </p>
