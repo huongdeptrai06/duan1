@@ -126,6 +126,8 @@ class BookingController
         $bookings = [];
         $successMessage = $_GET['success'] ?? null;
         $statusFilter = $_GET['status'] ?? null;
+        $currentUser = getCurrentUser();
+        $isGuide = isGuide() && !isAdmin();
 
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
@@ -161,9 +163,59 @@ class BookingController
                 }
 
                 $params = [];
+                $whereConditions = [];
+                
+                // Nếu là guide, chỉ hiển thị bookings được gán cho họ
+                if ($isGuide && $currentUser) {
+                    if ($guidesTableExists) {
+                        // Tìm guide_id từ user_id (giả sử có cột user_id trong guides hoặc mapping)
+                        // Nếu không có mapping, thử tìm guide theo user_id hoặc email
+                        // Hoặc nếu assigned_guide_id trực tiếp trỏ đến users.id
+                        // Tạm thời giả sử guides có user_id hoặc có cách map khác
+                        // Nếu không có, sẽ dùng cách khác
+                        try {
+                            // Kiểm tra xem guides có cột user_id không
+                            $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                            $hasUserId = $checkStmt->fetch();
+                            
+                            if ($hasUserId) {
+                                // Nếu có user_id trong guides, tìm guide_id
+                                $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                                $guideStmt->execute(['user_id' => $currentUser->id]);
+                                $guide = $guideStmt->fetch();
+                                if ($guide) {
+                                    $whereConditions[] = 'b.assigned_guide_id = :guide_id';
+                                    $params['guide_id'] = $guide['id'];
+                                } else {
+                                    // Không tìm thấy guide, không hiển thị booking nào
+                                    $whereConditions[] = '1 = 0';
+                                }
+                            } else {
+                                // Không có user_id, giả sử assigned_guide_id trỏ đến users.id
+                                // Hoặc cần mapping khác - tạm thời dùng cách này
+                                $whereConditions[] = 'b.assigned_guide_id = :user_id';
+                                $params['user_id'] = $currentUser->id;
+                            }
+                        } catch (PDOException $e) {
+                            error_log('Check guides structure failed: ' . $e->getMessage());
+                            // Fallback: giả sử assigned_guide_id trỏ đến users.id
+                            $whereConditions[] = 'b.assigned_guide_id = :user_id';
+                            $params['user_id'] = $currentUser->id;
+                        }
+                    } else {
+                        // Không có bảng guides, assigned_guide_id trỏ đến users.id
+                        $whereConditions[] = 'b.assigned_guide_id = :user_id';
+                        $params['user_id'] = $currentUser->id;
+                    }
+                }
+                
                 if ($statusFilter) {
-                    $query .= ' WHERE b.status = :status';
+                    $whereConditions[] = 'b.status = :status';
                     $params['status'] = $statusFilter;
+                }
+                
+                if (!empty($whereConditions)) {
+                    $query .= ' WHERE ' . implode(' AND ', $whereConditions);
                 }
 
                 $query .= ' ORDER BY b.created_at DESC';
@@ -202,7 +254,7 @@ class BookingController
     // Form tạo booking mới
     public function create(): void
     {
-        requireGuideOrAdmin();
+        requireAdmin(); // Chỉ admin mới tạo được booking
 
         $pdo = getDB();
         $tours = [];
@@ -235,7 +287,7 @@ class BookingController
     // Lưu booking mới
     public function store(): void
     {
-        requireGuideOrAdmin();
+        requireAdmin(); // Chỉ admin mới tạo được booking
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'admin/bookings');
@@ -768,6 +820,9 @@ class BookingController
             return;
         }
 
+        $currentUser = getCurrentUser();
+        $isGuide = isGuide() && !isAdmin();
+
         try {
             // Kiểm tra xem bảng guides có tồn tại không
             $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
@@ -805,10 +860,49 @@ class BookingController
             }
             $stmt->execute(['id' => $id]);
             $booking = $stmt->fetch();
-
-            if (!$booking) {
-                view('not_found', ['title' => 'Booking không tồn tại']);
-                return;
+            
+            // Kiểm tra quyền: nếu là guide, chỉ xem được booking được gán cho họ
+            if ($isGuide && $currentUser) {
+                $hasAccess = false;
+                
+                if ($guidesTableExists) {
+                    // Kiểm tra xem guides có cột user_id không
+                    try {
+                        $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                        $hasUserId = $checkStmt->fetch();
+                        
+                        if ($hasUserId) {
+                            // Tìm guide_id từ user_id
+                            $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                            $guideStmt->execute(['user_id' => $currentUser->id]);
+                            $guide = $guideStmt->fetch();
+                            if ($guide && $booking['assigned_guide_id'] == $guide['id']) {
+                                $hasAccess = true;
+                            }
+                        } else {
+                            // Không có user_id, giả sử assigned_guide_id trỏ đến users.id
+                            if ($booking['assigned_guide_id'] == $currentUser->id) {
+                                $hasAccess = true;
+                            }
+                        }
+                    } catch (PDOException $e) {
+                        error_log('Check guide access failed: ' . $e->getMessage());
+                        // Fallback
+                        if ($booking['assigned_guide_id'] == $currentUser->id) {
+                            $hasAccess = true;
+                        }
+                    }
+                } else {
+                    // Không có bảng guides, assigned_guide_id trỏ đến users.id
+                    if ($booking['assigned_guide_id'] == $currentUser->id) {
+                        $hasAccess = true;
+                    }
+                }
+                
+                if (!$hasAccess) {
+                    view('not_found', ['title' => 'Bạn không có quyền xem booking này']);
+                    return;
+                }
             }
 
             // Lấy lịch sử thay đổi trạng thái
@@ -846,7 +940,7 @@ class BookingController
     // Form chỉnh sửa booking
     public function edit(): void
     {
-        requireGuideOrAdmin();
+        requireAdmin(); // Chỉ admin mới sửa được booking
 
         $id = (int)($_GET['id'] ?? 0);
         if ($id <= 0) {
@@ -898,7 +992,7 @@ class BookingController
     // Cập nhật booking
     public function update(): void
     {
-        requireGuideOrAdmin();
+        requireAdmin(); // Chỉ admin mới sửa được booking
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'admin/bookings');

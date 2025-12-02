@@ -12,6 +12,7 @@ ob_start();
                     </h3>
                     <small class="text-muted">Quản lý đặt tour, lịch khởi hành và phân bổ hướng dẫn viên.</small>
                 </div>
+                <?php if (isAdmin()): ?>
                 <div class="d-flex gap-2">
                     <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
                         <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
@@ -23,6 +24,7 @@ ob_start();
                         <i class="bi bi-plus-lg me-1"></i> Tạo booking mới
                     </a>
                 </div>
+                <?php endif; ?>
             </div>
             <div class="card-body">
                 <?php if (!empty($successMessage)): ?>
@@ -119,16 +121,16 @@ ob_start();
                                             <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-info" title="Xem chi tiết">
                                                 <i class="bi bi-eye"></i>
                                             </a>
+                                            <?php if (isAdmin()): ?>
                                             <a href="<?= BASE_URL ?>admin/bookings/edit&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
                                                 <i class="bi bi-pencil-square"></i>
                                             </a>
-                                            <?php if (isAdmin()): ?>
-                                                <form action="<?= BASE_URL ?>admin/bookings/delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa booking này?');">
-                                                    <input type="hidden" name="id" value="<?= $booking['id'] ?>">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
+                                            <form action="<?= BASE_URL ?>admin/bookings/delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa booking này?');">
+                                                <input type="hidden" name="id" value="<?= $booking['id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
                                             <?php endif; ?>
                                         </td>
                                     </tr>

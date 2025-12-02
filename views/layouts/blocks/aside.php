@@ -44,11 +44,12 @@
           </a>
           <ul class="nav nav-treeview">
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="<?= BASE_URL . 'admin/tours' ?>" class="nav-link">
                 <i class="nav-icon bi bi-circle"></i>
                 <p>Danh sách Tour</p>
               </a>
             </li>
+            <?php if (isAdmin()): ?>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <i class="nav-icon bi bi-circle"></i>
@@ -61,6 +62,7 @@
                 <p>Quản lý danh mục</p>
               </a>
             </li>
+            <?php endif; ?>
           </ul>
         </li>
         <li class="nav-item">
@@ -78,6 +80,7 @@
                 <p>Danh sách Booking</p>
               </a>
             </li>
+            <?php if (isAdmin()): ?>
             <li class="nav-item">
               <a href="<?= BASE_URL . 'admin/bookings/create' ?>" class="nav-link">
                 <i class="nav-icon bi bi-circle"></i>
@@ -96,6 +99,7 @@
                 <p>Danh sách Khách hàng</p>
               </a>
             </li>
+            <?php endif; ?>
           </ul>
         </li>
         <li class="nav-item">

@@ -21,6 +21,7 @@ require_once __DIR__ . '/src/controllers/AuthController.php';
 require_once __DIR__ . '/src/controllers/CategoryController.php';
 require_once __DIR__ . '/src/controllers/GuideController.php';
 require_once __DIR__ . '/src/controllers/BookingController.php';
+require_once __DIR__ . '/src/controllers/TourController.php';
 
 // Khởi tạo các controller
 $homeController = new HomeController();
@@ -28,6 +29,7 @@ $authController = new AuthController();
 $categoryController = new CategoryController();
 $guideController = new GuideController();
 $bookingController = new BookingController();
+$tourController = new TourController();
 
 // Xác định route dựa trên tham số act (mặc định là trang chủ '/')
 $act = $_GET['act'] ?? '/';
@@ -83,6 +85,9 @@ match ($act) {
     'admin/bookings/customers' => $bookingController->customerList(),
     'admin/bookings/add-note' => $bookingController->addNote(),
     'admin/bookings/add-feedback' => $bookingController->addFeedback(),
+    // Tours management
+    'admin/tours' => $tourController->index(),
+    'admin/tours/show' => $tourController->show(),
     'logout' => $authController->logout(),
 
     // Đường dẫn không tồn tại

@@ -27,9 +27,11 @@ $errorMessage = $_GET['error'] ?? null;
                     <i class="bi bi-calendar-check me-2"></i>Chi tiết booking #<?= $booking['id'] ?>
                 </h3>
                 <div class="d-flex gap-2">
+                    <?php if (isAdmin()): ?>
                     <a href="<?= BASE_URL ?>admin/bookings/edit&id=<?= $booking['id'] ?>" class="btn btn-light btn-sm">
                         <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
                     </a>
+                    <?php endif; ?>
                     <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-left me-1"></i>Quay lại
                     </a>
