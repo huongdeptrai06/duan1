@@ -3,14 +3,14 @@ ob_start();
 $formData = $formData ?? [];
 ?>
 <div class="row">
-    <div class="col-12 col-lg-11 col-xl-11 mx-auto">
+    <div class="col-12">
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-primary text-white">
-                <h3 class="card-title mb-0">
-                    <i class="bi bi-plus-circle me-2"></i>Tạo booking mới
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <i class="bi bi-plus-circle me-2 fs-5"></i>Tạo booking mới
                 </h3>
             </div>
-            <div class="card-body p-4 p-lg-5">
+            <div class="card-body p-4">
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger">
                         <ul class="mb-0 ps-3">
@@ -22,10 +22,12 @@ $formData = $formData ?? [];
                 <?php endif; ?>
 
                 <form action="<?= BASE_URL ?>admin/bookings/store" method="post" novalidate>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="tour_id" class="form-label fw-semibold">Tour <span class="text-danger">*</span></label>
-                            <select class="form-select" id="tour_id" name="tour_id" required>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="tour_id" class="form-label fw-semibold">
+                                <i class="bi bi-airplane-engines me-1 text-primary"></i>Tour <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-lg" id="tour_id" name="tour_id" required>
                                 <option value="">-- Chọn tour --</option>
                                 <?php foreach ($tours as $tour): ?>
                                     <option value="<?= $tour['id'] ?>" <?= (isset($formData['tour_id']) && $formData['tour_id'] == $tour['id']) ? 'selected' : '' ?>>
@@ -35,9 +37,11 @@ $formData = $formData ?? [];
                             </select>
                         </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label for="status" class="form-label fw-semibold">Trạng thái</label>
-                            <select class="form-select" id="status" name="status">
+                        <div class="col-md-6">
+                            <label for="status" class="form-label fw-semibold">
+                                <i class="bi bi-info-circle me-1 text-primary"></i>Trạng thái
+                            </label>
+                            <select class="form-select form-select-lg" id="status" name="status">
                                 <option value="">-- Chọn trạng thái --</option>
                                 <?php foreach ($statuses as $status): ?>
                                     <option value="<?= $status['id'] ?>" <?= (isset($formData['status']) && $formData['status'] == $status['id']) ? 'selected' : '' ?>>
@@ -46,12 +50,12 @@ $formData = $formData ?? [];
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="assigned_guide_id" class="form-label fw-semibold">Hướng dẫn viên</label>
-                            <select class="form-select" id="assigned_guide_id" name="assigned_guide_id">
+                        <div class="col-md-6">
+                            <label for="assigned_guide_id" class="form-label fw-semibold">
+                                <i class="bi bi-person-badge me-1 text-primary"></i>Hướng dẫn viên
+                            </label>
+                            <select class="form-select form-select-lg" id="assigned_guide_id" name="assigned_guide_id">
                                 <option value="">-- Chọn hướng dẫn viên --</option>
                                 <?php foreach ($guides as $guide): ?>
                                     <option value="<?= $guide['id'] ?>" <?= (isset($formData['assigned_guide_id']) && $formData['assigned_guide_id'] == $guide['id']) ? 'selected' : '' ?>>
@@ -61,44 +65,52 @@ $formData = $formData ?? [];
                             </select>
                         </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label for="start_date" class="form-label fw-semibold">Ngày khởi hành <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" 
+                        <div class="col-md-6">
+                            <label for="start_date" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-event me-1 text-primary"></i>Ngày khởi hành <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control form-control-lg" id="start_date" name="start_date" 
                                    value="<?= htmlspecialchars($formData['start_date'] ?? '') ?>" required>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="end_date" class="form-label fw-semibold">Ngày kết thúc</label>
-                            <input type="date" class="form-control" id="end_date" name="end_date" 
+                        <div class="col-md-6">
+                            <label for="end_date" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-check me-1 text-primary"></i>Ngày kết thúc
+                            </label>
+                            <input type="date" class="form-control form-control-lg" id="end_date" name="end_date" 
                                    value="<?= htmlspecialchars($formData['end_date'] ?? '') ?>">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="schedule_detail" class="form-label fw-semibold">
+                                <i class="bi bi-calendar3 me-1 text-primary"></i>Chi tiết lịch trình
+                            </label>
+                            <textarea class="form-control" id="schedule_detail" name="schedule_detail" rows="6"
+                                      placeholder="Nhập chi tiết lịch trình tour..."><?= htmlspecialchars($formData['schedule_detail'] ?? '') ?></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="service_detail" class="form-label fw-semibold">
+                                <i class="bi bi-list-check me-1 text-primary"></i>Chi tiết dịch vụ
+                            </label>
+                            <textarea class="form-control" id="service_detail" name="service_detail" rows="6"
+                                      placeholder="Nhập chi tiết dịch vụ..."><?= htmlspecialchars($formData['service_detail'] ?? '') ?></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="notes" class="form-label fw-semibold">
+                                <i class="bi bi-sticky me-1 text-primary"></i>Ghi chú
+                            </label>
+                            <textarea class="form-control" id="notes" name="notes" rows="4"
+                                      placeholder="Ghi chú về booking..."><?= htmlspecialchars($formData['notes'] ?? '') ?></textarea>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="schedule_detail" class="form-label fw-semibold">Chi tiết lịch trình</label>
-                        <textarea class="form-control" id="schedule_detail" name="schedule_detail" rows="5"
-                                  placeholder="Nhập chi tiết lịch trình tour..."><?= htmlspecialchars($formData['schedule_detail'] ?? '') ?></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="service_detail" class="form-label fw-semibold">Chi tiết dịch vụ</label>
-                        <textarea class="form-control" id="service_detail" name="service_detail" rows="5"
-                                  placeholder="Nhập chi tiết dịch vụ..."><?= htmlspecialchars($formData['service_detail'] ?? '') ?></textarea>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="notes" class="form-label fw-semibold">Ghi chú</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="3"
-                                  placeholder="Ghi chú về booking..."><?= htmlspecialchars($formData['notes'] ?? '') ?></textarea>
-                    </div>
-
-                    <div class="d-flex justify-content-between">
-                        <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
+                    <div class="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
+                        <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary btn-lg">
                             <i class="bi bi-arrow-left me-1"></i>Quay lại
                         </a>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
                             <i class="bi bi-save me-1"></i>Tạo booking
                         </button>
                     </div>

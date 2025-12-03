@@ -38,6 +38,91 @@
     <!--begin::Required Plugin(AdminLTE)-->
     <link rel="stylesheet" href="<?= asset('dist/css/adminlte.css') ?>" />
     <!--end::Required Plugin(AdminLTE)-->
+    <!--begin::Custom Header Styles-->
+    <style>
+      /* Cải thiện căn chỉnh các nút header */
+      .app-header .navbar-nav.ms-auto {
+        gap: 0.5rem;
+        padding-right: 0.5rem;
+      }
+      
+      .app-header .navbar-nav.ms-auto .nav-item {
+        display: flex;
+        align-items: center;
+      }
+      
+      .app-header .navbar-nav.ms-auto .nav-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+      }
+      
+      .app-header .navbar-nav.ms-auto .nav-link:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+      }
+      
+      .app-header .navbar-nav.ms-auto .nav-link i {
+        font-size: 1.1rem;
+      }
+      
+      /* Cải thiện badge thông báo */
+      .app-header .navbar-nav .nav-link.position-relative {
+        padding-right: 1.5rem;
+      }
+      
+      .app-header .navbar-badge {
+        font-size: 0.65rem;
+        padding: 0.2em 0.4em;
+        min-width: 1.2em;
+        line-height: 1.2;
+        top: -0.25rem;
+        right: 0.25rem;
+      }
+      
+      /* Cải thiện user menu */
+      .app-header .user-menu .nav-link {
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+      }
+      
+      .app-header .user-menu .user-image {
+        width: 32px;
+        height: 32px;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      @media (max-width: 767.98px) {
+        .app-header .navbar-nav.ms-auto {
+          gap: 0.25rem;
+        }
+        
+        .app-header .navbar-nav.ms-auto .nav-link {
+          padding: 0.4rem 0.6rem;
+        }
+      }
+      
+      /* Đảm bảo các nút Quay lại được căn phải */
+      .card-footer .d-flex.justify-content-end,
+      .card-header .d-flex.justify-content-end,
+      .d-flex.justify-content-end.gap-2 {
+        width: 100%;
+        justify-content: flex-end !important;
+      }
+      
+      /* Đảm bảo container nút được căn phải hoàn toàn */
+      .card-header .d-flex.justify-content-between {
+        flex-wrap: nowrap;
+      }
+      
+      .card-header .d-flex.justify-content-end {
+        margin-left: auto;
+      }
+    </style>
+    <!--end::Custom Header Styles-->
   </head>
   <!--end::Head-->
   <!--begin::Body-->

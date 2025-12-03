@@ -4,27 +4,31 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
-                <div>
-                    <h3 class="card-title mb-1">
-                        <i class="bi bi-calendar-check me-2"></i>
-                        Quản lý booking
-                    </h3>
-                    <small class="text-muted">Quản lý đặt tour, lịch khởi hành và phân bổ hướng dẫn viên.</small>
+            <div class="card-header bg-white border-0">
+                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+                    <div>
+                        <h3 class="card-title mb-1">
+                            <i class="bi <?= isAdmin() ? 'bi-calendar-check' : 'bi-airplane-engines' ?> me-2"></i>
+                            <?= isAdmin() ? 'Quản lý booking' : 'Danh sách tour của tôi' ?>
+                        </h3>
+                        <small class="text-muted">
+                            <?= isAdmin() ? 'Quản lý đặt tour, lịch khởi hành và phân bổ hướng dẫn viên.' : 'Xem danh sách các tour được phân bổ cho bạn.' ?>
+                        </small>
+                    </div>
+                    <?php if (isAdmin()): ?>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
+                            <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
+                        </a>
+                        <a href="<?= BASE_URL ?>admin/bookings/customers" class="btn btn-outline-secondary">
+                            <i class="bi bi-people me-1"></i> Khách hàng
+                        </a>
+                        <a href="<?= BASE_URL ?>admin/bookings/create" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i> Tạo booking mới
+                        </a>
+                    </div>
+                    <?php endif; ?>
                 </div>
-                <?php if (isAdmin()): ?>
-                <div class="d-flex gap-2 ms-md-auto">
-                    <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
-                        <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
-                    </a>
-                    <a href="<?= BASE_URL ?>admin/bookings/customers" class="btn btn-outline-secondary">
-                        <i class="bi bi-people me-1"></i> Khách hàng
-                    </a>
-                    <a href="<?= BASE_URL ?>admin/bookings/create" class="btn btn-primary">
-                        <i class="bi bi-plus-lg me-1"></i> Tạo booking mới
-                    </a>
-                </div>
-                <?php endif; ?>
             </div>
             <div class="card-body">
                 <?php if (!empty($successMessage)): ?>
@@ -62,7 +66,7 @@ ob_start();
                 <?php if (empty($bookings)): ?>
                     <div class="alert alert-info mb-0">
                         <i class="bi bi-info-circle me-2"></i>
-                        Chưa có booking nào. Hãy tạo booking đầu tiên.
+                        <?= isAdmin() ? 'Chưa có booking nào. Hãy tạo booking đầu tiên.' : 'Bạn chưa được phân bổ tour nào.' ?>
                     </div>
                 <?php else: ?>
                     <div class="table-responsive">
@@ -147,12 +151,12 @@ ob_start();
 $content = ob_get_clean();
 
 view('layouts.AdminLayout', [
-    'title' => $title ?? 'Quản lý booking',
-    'pageTitle' => 'Quản lý booking',
+    'title' => $title ?? (isAdmin() ? 'Quản lý booking' : 'Danh sách tour của tôi'),
+    'pageTitle' => isAdmin() ? 'Quản lý booking' : 'Danh sách tour của tôi',
     'content' => $content,
     'breadcrumb' => [
         ['label' => 'Trang chủ', 'url' => BASE_URL . 'home'],
-        ['label' => 'Booking', 'url' => BASE_URL . 'admin/bookings', 'active' => true],
+        ['label' => isAdmin() ? 'Booking' : 'Tour của tôi', 'url' => BASE_URL . 'admin/bookings', 'active' => true],
     ],
 ]);
 ?>

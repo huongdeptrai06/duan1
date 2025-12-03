@@ -34,7 +34,14 @@
             <p>Dashboard</p>
           </a>
         </li>
-        <?php if (isAdmin()): ?>
+        <?php if (isGuide()): ?>
+        <li class="nav-item">
+          <a href="<?= BASE_URL . 'admin/tours' ?>" class="nav-link">
+            <i class="nav-icon bi bi-airplane-engines"></i>
+            <p>Danh sách tour của tôi</p>
+          </a>
+        </li>
+        <?php elseif (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-airplane-engines"></i>
@@ -51,12 +58,6 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="<?= BASE_URL . 'admin/tours/create' ?>" class="nav-link">
-                <i class="nav-icon bi bi-circle"></i>
-                <p>Thêm Tour mới</p>
-              </a>
-            </li>
-            <li class="nav-item">
               <a href="<?= BASE_URL . 'admin/categories' ?>" class="nav-link">
                 <i class="nav-icon bi bi-circle"></i>
                 <p>Quản lý danh mục</p>
@@ -65,6 +66,7 @@
           </ul>
         </li>
         <?php endif; ?>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-calendar-check"></i>
@@ -80,29 +82,8 @@
                 <p>Danh sách Booking</p>
               </a>
             </li>
-            <?php if (isAdmin()): ?>
-            <li class="nav-item">
-              <a href="<?= BASE_URL . 'admin/bookings/create' ?>" class="nav-link">
-                <i class="nav-icon bi bi-circle"></i>
-                <p>Tạo Booking mới</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="<?= BASE_URL . 'admin/bookings/schedule' ?>" class="nav-link">
-                <i class="nav-icon bi bi-circle"></i>
-                <p>Lịch khởi hành</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="<?= BASE_URL . 'admin/bookings/customers' ?>" class="nav-link">
-                <i class="nav-icon bi bi-circle"></i>
-                <p>Danh sách Khách hàng</p>
-              </a>
-            </li>
-            <?php endif; ?>
           </ul>
         </li>
-        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-people-fill"></i>
@@ -166,3 +147,4 @@
   <!--end::Sidebar Wrapper-->
 </aside>
 <!--end::Sidebar-->
+

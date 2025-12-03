@@ -4,11 +4,11 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm mb-4">
-            <div class="card-header bg-info text-white d-flex align-items-center">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-airplane-engines me-2"></i>Chi tiết tour #<?= $tour['id'] ?>
                 </h3>
-                <div class="d-flex gap-2 ms-auto">
+                <div class="d-flex justify-content-end">
                     <a href="<?= BASE_URL ?>admin/tours" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-left me-1"></i>Quay lại
                     </a>
