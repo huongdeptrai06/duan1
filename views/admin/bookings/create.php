@@ -2,15 +2,15 @@
 ob_start();
 $formData = $formData ?? [];
 ?>
-<div class="row justify-content-center">
-    <div class="col-12 col-lg-10">
-        <div class="card shadow-sm">
+<div class="row">
+    <div class="col-12 col-lg-11 col-xl-11 mx-auto">
+        <div class="card shadow-sm border-0">
             <div class="card-header bg-primary text-white">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-plus-circle me-2"></i>Tạo booking mới
                 </h3>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4 p-lg-5">
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger">
                         <ul class="mb-0 ps-3">

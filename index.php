@@ -12,33 +12,24 @@ require_once __DIR__ . '/src/models/User.php';
 require_once __DIR__ . '/src/models/Category.php';
 require_once __DIR__ . '/src/models/Guide.php';
 require_once __DIR__ . '/src/models/GuideLog.php';
-<<<<<<< HEAD
-=======
 require_once __DIR__ . '/src/models/Booking.php';
 require_once __DIR__ . '/src/models/Tour.php';
->>>>>>> origin/hieu
 
 // Nạp các file chứa controller
 require_once __DIR__ . '/src/controllers/HomeController.php';
 require_once __DIR__ . '/src/controllers/AuthController.php';
 require_once __DIR__ . '/src/controllers/CategoryController.php';
 require_once __DIR__ . '/src/controllers/GuideController.php';
-<<<<<<< HEAD
-=======
 require_once __DIR__ . '/src/controllers/BookingController.php';
 require_once __DIR__ . '/src/controllers/TourController.php';
->>>>>>> origin/hieu
 
 // Khởi tạo các controller
 $homeController = new HomeController();
 $authController = new AuthController();
 $categoryController = new CategoryController();
 $guideController = new GuideController();
-<<<<<<< HEAD
-=======
 $bookingController = new BookingController();
 $tourController = new TourController();
->>>>>>> origin/hieu
 
 // Xác định route dựa trên tham số act (mặc định là trang chủ '/')
 $act = $_GET['act'] ?? '/';
@@ -80,8 +71,6 @@ match ($act) {
     'admin/guides/update' => $guideController->update(),
     'admin/guides/delete' => $guideController->delete(),
     'admin/guides/show' => $guideController->show(),
-<<<<<<< HEAD
-=======
     // Bookings management
     'admin/bookings' => $bookingController->index(),
     'admin/bookings/create' => $bookingController->create(),
@@ -98,8 +87,9 @@ match ($act) {
     'admin/bookings/add-feedback' => $bookingController->addFeedback(),
     // Tours management
     'admin/tours' => $tourController->index(),
+    'admin/tours/create' => $tourController->create(),
+    'admin/tours/store' => $tourController->store(),
     'admin/tours/show' => $tourController->show(),
->>>>>>> origin/hieu
     'logout' => $authController->logout(),
 
     // Đường dẫn không tồn tại

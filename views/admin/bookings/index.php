@@ -4,7 +4,7 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+            <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
                 <div>
                     <h3 class="card-title mb-1">
                         <i class="bi bi-calendar-check me-2"></i>
@@ -13,7 +13,7 @@ ob_start();
                     <small class="text-muted">Quản lý đặt tour, lịch khởi hành và phân bổ hướng dẫn viên.</small>
                 </div>
                 <?php if (isAdmin()): ?>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 ms-md-auto">
                     <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
                         <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
                     </a>

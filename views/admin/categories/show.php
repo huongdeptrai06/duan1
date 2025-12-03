@@ -65,17 +65,3 @@ view('layouts.AdminLayout', [
 ]);
 ?>
 
-
-
-
-
-
-
-
-<<<<<<< HEAD
-=======
-
-
-
-
->>>>>>> origin/hieu

@@ -22,11 +22,11 @@ $errorMessage = $_GET['error'] ?? null;
         <?php endif; ?>
 
         <div class="card shadow-sm mb-4">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-info text-white d-flex align-items-center">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-calendar-check me-2"></i>Chi tiết booking #<?= $booking['id'] ?>
                 </h3>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 ms-auto">
                     <?php if (isAdmin()): ?>
                     <a href="<?= BASE_URL ?>admin/bookings/edit&id=<?= $booking['id'] ?>" class="btn btn-light btn-sm">
                         <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
@@ -174,6 +174,7 @@ $errorMessage = $_GET['error'] ?? null;
             </div>
         </div>
 
+        <?php if (isAdmin()): ?>
         <!-- Phân bổ hướng dẫn viên -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-success text-white">
@@ -205,6 +206,7 @@ $errorMessage = $_GET['error'] ?? null;
                 </form>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Thêm ghi chú -->
         <div class="card shadow-sm mb-4">

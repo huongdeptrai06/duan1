@@ -10,26 +10,16 @@ if ($guide && empty($formData['id'])) {
     $formData = array_merge($formData, $guide);
 }
 ?>
-<<<<<<< HEAD
 <div class="row">
     <div class="col-12 col-lg-11 col-xl-11 mx-auto">
         <div class="card shadow-sm border-0">
-=======
-<div class="row justify-content-center">
-    <div class="col-12 col-lg-8 col-xl-6">
-        <div class="card shadow-sm">
->>>>>>> origin/hieu
             <div class="card-header bg-primary text-white">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-pencil-square me-2"></i>
                     Sửa thông tin hướng dẫn viên
                 </h3>
             </div>
-<<<<<<< HEAD
             <div class="card-body p-4 p-lg-5">
-=======
-            <div class="card-body">
->>>>>>> origin/hieu
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger">
                         <div class="d-flex align-items-center mb-2">
@@ -252,43 +242,7 @@ if ($guide && empty($formData['id'])) {
                                maxlength="100">
                     </div>
 
-<<<<<<< HEAD
                     <div class="d-flex justify-content-end gap-2 mt-4">
-=======
-                    <hr class="my-4">
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Đổi mật khẩu</label>
-                        <p class="text-muted small mb-3">Để trống nếu không muốn thay đổi mật khẩu</p>
-                    </div>
-
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label for="guidePassword" class="form-label">Mật khẩu mới</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                <input type="password"
-                                       class="form-control"
-                                       id="guidePassword"
-                                       name="password"
-                                       placeholder="Ít nhất 6 ký tự">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="guidePasswordConfirm" class="form-label">Xác nhận mật khẩu</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                <input type="password"
-                                       class="form-control"
-                                       id="guidePasswordConfirm"
-                                       name="password_confirmation"
-                                       placeholder="Nhập lại mật khẩu">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2">
->>>>>>> origin/hieu
                         <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left me-1"></i>
                             Hủy
@@ -317,4 +271,3 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-

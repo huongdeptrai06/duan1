@@ -34,6 +34,7 @@
             <p>Dashboard</p>
           </a>
         </li>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-airplane-engines"></i>
@@ -44,21 +45,13 @@
           </a>
           <ul class="nav nav-treeview">
             <li class="nav-item">
-<<<<<<< HEAD
-              <a href="#" class="nav-link">
-=======
               <a href="<?= BASE_URL . 'admin/tours' ?>" class="nav-link">
->>>>>>> origin/hieu
                 <i class="nav-icon bi bi-circle"></i>
                 <p>Danh sách Tour</p>
               </a>
             </li>
-<<<<<<< HEAD
-=======
-            <?php if (isAdmin()): ?>
->>>>>>> origin/hieu
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="<?= BASE_URL . 'admin/tours/create' ?>" class="nav-link">
                 <i class="nav-icon bi bi-circle"></i>
                 <p>Thêm Tour mới</p>
               </a>
@@ -69,11 +62,9 @@
                 <p>Quản lý danh mục</p>
               </a>
             </li>
-<<<<<<< HEAD
-=======
-            <?php endif; ?>
           </ul>
         </li>
+        <?php endif; ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-calendar-check"></i>
@@ -109,9 +100,9 @@
               </a>
             </li>
             <?php endif; ?>
->>>>>>> origin/hieu
           </ul>
         </li>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">
             <i class="nav-icon bi bi-people-fill"></i>
@@ -122,17 +113,14 @@
           </a>
           <ul class="nav nav-treeview">
             <li class="nav-item">
-<<<<<<< HEAD
-              <a href="#" class="nav-link">
-=======
               <a href="<?= BASE_URL . 'admin/bookings/customers' ?>" class="nav-link">
->>>>>>> origin/hieu
                 <i class="nav-icon bi bi-circle"></i>
                 <p>Danh sách Khách hàng</p>
               </a>
             </li>
           </ul>
         </li>
+        <?php endif; ?>
         <?php if (isAdmin()): ?>
           <li class="nav-item">
             <a href="#" class="nav-link">
@@ -178,4 +166,3 @@
   <!--end::Sidebar Wrapper-->
 </aside>
 <!--end::Sidebar-->
-

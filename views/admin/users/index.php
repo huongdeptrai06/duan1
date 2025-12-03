@@ -4,20 +4,12 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-<<<<<<< HEAD
             <div class="card-header bg-white border-0 d-flex align-items-center">
-=======
-            <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between">
->>>>>>> origin/hieu
                 <div>
                     <h3 class="card-title mb-0"><i class="bi bi-people-fill me-2"></i>Danh sách tài khoản</h3>
                     <small class="text-muted">Quản trị viên có thể xem nhanh quyền và trạng thái của từng tài khoản.</small>
                 </div>
-<<<<<<< HEAD
                 <a href="<?= BASE_URL ?>admin/guide/create" class="btn btn-primary ms-auto">
-=======
-                <a href="<?= BASE_URL ?>admin/guide/create" class="btn btn-primary">
->>>>>>> origin/hieu
                     <i class="bi bi-person-plus me-1"></i> Cấp tài khoản HDV
                 </a>
             </div>
@@ -97,18 +89,3 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-
-
-
-
-
-
-
-
-<<<<<<< HEAD
-=======
-
-
-
-
->>>>>>> origin/hieu

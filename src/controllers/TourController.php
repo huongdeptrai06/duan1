@@ -209,5 +209,149 @@ class TourController
             view('not_found', ['title' => 'Lỗi khi tải tour']);
         }
     }
+
+    // Hiển thị form thêm tour mới
+    public function create(): void
+    {
+        requireAdmin();
+
+        $pdo = getDB();
+        $categories = [];
+        
+        if ($pdo !== null) {
+            try {
+                $stmt = $pdo->query('SELECT id, name FROM categories WHERE status = 1 ORDER BY name ASC');
+                $categories = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                error_log('Fetch categories failed: ' . $e->getMessage());
+            }
+        }
+
+        view('admin.tours.create', [
+            'title' => 'Thêm tour mới',
+            'categories' => $categories,
+        ]);
+    }
+
+    // Xử lý submit thêm tour mới
+    public function store(): void
+    {
+        requireAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'admin/tours');
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            view('admin.tours.create', [
+                'title' => 'Thêm tour mới',
+                'errors' => ['Không thể kết nối cơ sở dữ liệu.'],
+                'formData' => $_POST,
+            ]);
+            return;
+        }
+
+        $name = trim($_POST['name'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $category_id = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null;
+        $schedule = trim($_POST['schedule'] ?? '');
+        $price = !empty($_POST['price']) ? (float)$_POST['price'] : null;
+        $policies = trim($_POST['policies'] ?? '');
+        $suppliers = trim($_POST['suppliers'] ?? '');
+        $status = isset($_POST['status']) ? 1 : 0;
+
+        $errors = [];
+
+        if ($name === '') {
+            $errors[] = 'Tên tour không được để trống.';
+        }
+
+        if (strlen($name) > 255) {
+            $errors[] = 'Tên tour không được vượt quá 255 ký tự.';
+        }
+
+        if ($category_id !== null) {
+            try {
+                $stmt = $pdo->prepare('SELECT id FROM categories WHERE id = :id LIMIT 1');
+                $stmt->execute(['id' => $category_id]);
+                if (!$stmt->fetch()) {
+                    $errors[] = 'Danh mục không tồn tại.';
+                }
+            } catch (PDOException $e) {
+                error_log('Check category failed: ' . $e->getMessage());
+                $errors[] = 'Không thể kiểm tra danh mục.';
+            }
+        }
+
+        $formData = [
+            'name' => $name,
+            'description' => $description,
+            'category_id' => $category_id,
+            'schedule' => $schedule,
+            'price' => $price,
+            'policies' => $policies,
+            'suppliers' => $suppliers,
+            'status' => $status,
+        ];
+
+        if (!empty($errors)) {
+            // Lấy lại danh sách categories
+            try {
+                $stmt = $pdo->query('SELECT id, name FROM categories WHERE status = 1 ORDER BY name ASC');
+                $categories = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                $categories = [];
+            }
+
+            view('admin.tours.create', [
+                'title' => 'Thêm tour mới',
+                'errors' => $errors,
+                'formData' => $formData,
+                'categories' => $categories,
+            ]);
+            return;
+        }
+
+        try {
+            $now = date('Y-m-d H:i:s');
+            $stmt = $pdo->prepare('INSERT INTO tours (name, description, category_id, schedule, price, policies, suppliers, status, created_at, updated_at) VALUES (:name, :description, :category_id, :schedule, :price, :policies, :suppliers, :status, :created_at, :updated_at)');
+            $stmt->execute([
+                'name' => $name,
+                'description' => $description ?: null,
+                'category_id' => $category_id,
+                'schedule' => $schedule ?: null,
+                'price' => $price,
+                'policies' => $policies ?: null,
+                'suppliers' => $suppliers ?: null,
+                'status' => $status,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        } catch (PDOException $e) {
+            error_log('Create tour failed: ' . $e->getMessage());
+            $errors[] = 'Không thể tạo tour. Vui lòng thử lại.';
+            
+            // Lấy lại danh sách categories
+            try {
+                $stmt = $pdo->query('SELECT id, name FROM categories WHERE status = 1 ORDER BY name ASC');
+                $categories = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                $categories = [];
+            }
+
+            view('admin.tours.create', [
+                'title' => 'Thêm tour mới',
+                'errors' => $errors,
+                'formData' => $formData,
+                'categories' => $categories,
+            ]);
+            return;
+        }
+
+        header('Location: ' . BASE_URL . 'admin/tours?success=' . urlencode('Đã thêm tour mới thành công.'));
+        exit;
+    }
 }
 

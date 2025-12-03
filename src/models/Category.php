@@ -25,17 +25,3 @@ class Category
     }
 }
 
-
-
-
-
-
-
-<<<<<<< HEAD
-=======
-
-
-
-
-
->>>>>>> origin/hieu
