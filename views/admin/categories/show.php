@@ -1,18 +1,20 @@
 <?php
 ob_start();
 ?>
-<div class="row justify-content-center">
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+<div class="row">
+    <div class="col-12 col-lg-11 col-xl-11 mx-auto">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white d-flex align-items-center">
                 <h3 class="card-title mb-0">
                     <i class="bi bi-eye me-2"></i>Chi tiết danh mục
                 </h3>
-                <a href="<?= BASE_URL ?>admin/categories/edit&id=<?= $category['id'] ?>" class="btn btn-light btn-sm">
-                    <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
-                </a>
+                <div class="d-flex gap-2 ms-auto">
+                    <a href="<?= BASE_URL ?>admin/categories/edit&id=<?= $category['id'] ?>" class="btn btn-light btn-sm">
+                        <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
+                    </a>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4 p-lg-5">
                 <dl class="row mb-0">
                     <dt class="col-sm-3">Tên danh mục</dt>
                     <dd class="col-sm-9"><?= htmlspecialchars($category['name'] ?? '') ?></dd>
@@ -36,11 +38,11 @@ ob_start();
                     <dd class="col-sm-9"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($category['updated_at'] ?? 'now'))) ?></dd>
                 </dl>
             </div>
-            <div class="card-footer d-flex justify-content-between">
+            <div class="card-footer d-flex justify-content-end gap-2">
                 <a href="<?= BASE_URL ?>admin/categories" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Quay lại
                 </a>
-                <form action="<?= BASE_URL ?>admin/categories/delete" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');">
+                <form action="<?= BASE_URL ?>admin/categories/delete" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');" class="d-inline">
                     <input type="hidden" name="id" value="<?= $category['id'] ?>">
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash me-1"></i>Xóa danh mục
