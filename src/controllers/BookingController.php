@@ -62,6 +62,52 @@ class BookingController
         return $guides;
     }
 
+    // Helper function để lấy danh sách statuses có thể chuyển tiếp (chỉ tiến lên, không quay lại)
+    private function getNextStatuses($pdo, $currentStatusId)
+    {
+        $statuses = [];
+        if (!$pdo) {
+            return $statuses;
+        }
+
+        try {
+            // Kiểm tra xem bảng có tồn tại không
+            $tableExists = $pdo->query("SHOW TABLES LIKE 'tour_statuses'")->fetch();
+            if (!$tableExists) {
+                error_log('Table tour_statuses does not exist');
+                return $statuses;
+            }
+
+            // Lấy tất cả trạng thái
+            $stmt = $pdo->query('SELECT id, name FROM tour_statuses ORDER BY id');
+            $allStatuses = $stmt->fetchAll();
+            
+            // Lọc chỉ lấy các trạng thái có thể chuyển tiếp
+            // Quy tắc: chỉ cho phép chuyển sang trạng thái có id >= currentStatusId
+            // Trừ trường hợp hủy (thường là id cao nhất hoặc có tên chứa "hủy")
+            foreach ($allStatuses as $status) {
+                $statusId = (int)$status['id'];
+                $statusName = strtolower($status['name'] ?? '');
+                
+                // Cho phép chuyển sang trạng thái tiếp theo hoặc bằng
+                if ($statusId >= $currentStatusId) {
+                    $statuses[] = $status;
+                }
+                // Cho phép hủy từ bất kỳ trạng thái nào (nếu chưa hủy)
+                elseif (stripos($statusName, 'hủy') !== false || stripos($statusName, 'cancel') !== false) {
+                    if ($currentStatusId != $statusId) {
+                        $statuses[] = $status;
+                    }
+                }
+            }
+            
+            return $statuses;
+        } catch (PDOException $e) {
+            error_log('Fetch next statuses failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
     // Helper function để lấy danh sách statuses
     private function getStatuses($pdo)
     {
@@ -357,8 +403,24 @@ class BookingController
             $errors[] = 'Vui lòng chọn ngày khởi hành.';
         }
 
-        if ($start_date && $end_date && $end_date < $start_date) {
-            $errors[] = 'Ngày kết thúc phải sau hoặc bằng ngày khởi hành.';
+        // Kiểm tra ngày khởi hành phải là ngày trong tương lai (từ hôm nay trở đi)
+        if ($start_date) {
+            $startTimestamp = strtotime($start_date);
+            $todayTimestamp = strtotime(date('Y-m-d'));
+            
+            if ($startTimestamp < $todayTimestamp) {
+                $errors[] = 'Ngày khởi hành phải là ngày trong tương lai. Không thể chọn ngày trong quá khứ.';
+            }
+        }
+
+        // Validation ngày tháng - đảm bảo end_date >= start_date
+        if ($start_date && $end_date) {
+            $startTimestamp = strtotime($start_date);
+            $endTimestamp = strtotime($end_date);
+            
+            if ($endTimestamp < $startTimestamp) {
+                $errors[] = 'Ngày kết thúc phải sau hoặc bằng ngày khởi hành.';
+            }
         }
 
         // Kiểm tra status - có thể constraint yêu cầu status không được NULL
@@ -923,6 +985,10 @@ class BookingController
             // Lấy danh sách guides và statuses để có thể chỉnh sửa
             $guides = $this->getGuides($pdo);
             $statuses = $this->getStatuses($pdo);
+            
+            // Lấy danh sách trạng thái có thể chuyển tiếp (chỉ tiến lên, không quay lại)
+            $currentStatusId = (int)($booking['status'] ?? 0);
+            $nextStatuses = $this->getNextStatuses($pdo, $currentStatusId);
 
             view('admin.bookings.show', [
                 'title' => 'Chi tiết booking',
@@ -930,6 +996,7 @@ class BookingController
                 'statusLogs' => $statusLogs,
                 'guides' => $guides,
                 'statuses' => $statuses,
+                'nextStatuses' => $nextStatuses, // Danh sách trạng thái có thể chuyển tiếp
             ]);
         } catch (PDOException $e) {
             error_log('Show booking failed: ' . $e->getMessage());
@@ -955,7 +1022,16 @@ class BookingController
         }
 
         try {
-            $stmt = $pdo->prepare('SELECT * FROM bookings WHERE id = :id LIMIT 1');
+            // Lấy thông tin booking kèm tên trạng thái
+            $tableExists = $pdo->query("SHOW TABLES LIKE 'tour_statuses'")->fetch();
+            if ($tableExists) {
+                $stmt = $pdo->prepare('SELECT b.*, ts.name as status_name 
+                                       FROM bookings b 
+                                       LEFT JOIN tour_statuses ts ON b.status = ts.id 
+                                       WHERE b.id = :id LIMIT 1');
+            } else {
+                $stmt = $pdo->prepare('SELECT * FROM bookings WHERE id = :id LIMIT 1');
+            }
             $stmt->execute(['id' => $id]);
             $booking = $stmt->fetch();
 
@@ -1011,7 +1087,7 @@ class BookingController
 
         $tour_id = !empty($_POST['tour_id']) ? (int)$_POST['tour_id'] : null;
         $assigned_guide_id = !empty($_POST['assigned_guide_id']) ? (int)$_POST['assigned_guide_id'] : null;
-        $status = !empty($_POST['status']) ? (int)$_POST['status'] : null;
+        // Không cho phép thay đổi status khi chỉnh sửa, chỉ giữ nguyên status hiện tại
         $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
         $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
         $schedule_detail_raw = trim($_POST['schedule_detail'] ?? '');
@@ -1059,6 +1135,16 @@ class BookingController
             $errors[] = 'Vui lòng chọn ngày khởi hành.';
         }
 
+        // Kiểm tra ngày khởi hành phải là ngày trong tương lai (từ hôm nay trở đi)
+        if ($start_date) {
+            $startTimestamp = strtotime($start_date);
+            $todayTimestamp = strtotime(date('Y-m-d'));
+            
+            if ($startTimestamp < $todayTimestamp) {
+                $errors[] = 'Ngày khởi hành phải là ngày trong tương lai. Không thể chọn ngày trong quá khứ.';
+            }
+        }
+
         // Validation ngày tháng - đảm bảo end_date >= start_date
         if ($start_date && $end_date) {
             $startTimestamp = strtotime($start_date);
@@ -1102,17 +1188,16 @@ class BookingController
         try {
             $pdo->beginTransaction();
 
-            // Lấy trạng thái cũ để log
+            // Lấy trạng thái hiện tại từ database (không cho phép thay đổi khi chỉnh sửa)
             $oldStmt = $pdo->prepare('SELECT status FROM bookings WHERE id = :id LIMIT 1');
             $oldStmt->execute(['id' => $id]);
             $oldBooking = $oldStmt->fetch();
-            $oldStatus = $oldBooking ? $oldBooking['status'] : null;
+            $currentStatus = $oldBooking ? $oldBooking['status'] : null;
 
-            // Cập nhật booking
+            // Cập nhật booking (không cập nhật status, giữ nguyên status hiện tại)
             $stmt = $pdo->prepare('UPDATE bookings SET 
                 tour_id = :tour_id, 
                 assigned_guide_id = :assigned_guide_id, 
-                status = :status, 
                 start_date = :start_date, 
                 end_date = :end_date, 
                 schedule_detail = :schedule_detail, 
@@ -1125,7 +1210,6 @@ class BookingController
             $stmt->execute([
                 'tour_id' => $tour_id,
                 'assigned_guide_id' => $assigned_guide_id ?: null,
-                'status' => $status ?: null,
                 'start_date' => $start_date ?: null,
                 'end_date' => $end_date ?: null,
                 'schedule_detail' => $schedule_detail ?: null,
@@ -1135,8 +1219,9 @@ class BookingController
                 'id' => $id,
             ]);
 
-            // Ghi log nếu trạng thái thay đổi
-            if ($status && $status != $oldStatus) {
+            // Không ghi log thay đổi trạng thái vì không cho phép thay đổi status khi chỉnh sửa
+            // (Trạng thái chỉ có thể thay đổi qua form tạo booking mới hoặc chức năng thay đổi trạng thái riêng)
+            if (false) {
                 $logStmt = $pdo->prepare('INSERT INTO booking_status_logs 
                     (booking_id, old_status, new_status, changed_by, note, changed_at) 
                     VALUES (:booking_id, :old_status, :new_status, :changed_by, :note, NOW())');
@@ -1194,10 +1279,9 @@ class BookingController
         }
 
         $id = (int)($_POST['id'] ?? 0);
-        $newStatus = !empty($_POST['status']) ? (int)$_POST['status'] : null;
         $note = trim($_POST['note'] ?? '');
 
-        if ($id <= 0 || !$newStatus) {
+        if ($id <= 0) {
             header('Location: ' . BASE_URL . 'admin/bookings');
             exit;
         }
@@ -1224,7 +1308,20 @@ class BookingController
                 exit;
             }
 
-            $oldStatus = $oldBooking['status'];
+            $oldStatus = (int)$oldBooking['status'];
+
+            // Tự động tìm trạng thái tiếp theo (id > trạng thái hiện tại, id nhỏ nhất)
+            $nextStatusStmt = $pdo->prepare('SELECT id, name FROM tour_statuses WHERE id > :current_status ORDER BY id ASC LIMIT 1');
+            $nextStatusStmt->execute(['current_status' => $oldStatus]);
+            $nextStatusInfo = $nextStatusStmt->fetch();
+            
+            if (!$nextStatusInfo) {
+                $pdo->rollBack();
+                header('Location: ' . BASE_URL . 'admin/bookings/show&id=' . $id . '&error=' . urlencode('Không có trạng thái tiếp theo. Booking có thể đã ở trạng thái cuối cùng.'));
+                exit;
+            }
+            
+            $newStatus = (int)$nextStatusInfo['id'];
 
             // Cập nhật trạng thái
             $stmt = $pdo->prepare('UPDATE bookings SET status = :status, updated_at = NOW() WHERE id = :id');

@@ -6,28 +6,25 @@ ob_start();
         <div class="card shadow-sm">
             <div class="card-header bg-white border-0">
                 <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
-                    <div>
-                        <h3 class="card-title mb-1">
+                <div>
+                    <h3 class="card-title mb-0">
                             <i class="bi <?= isAdmin() ? 'bi-calendar-check' : 'bi-airplane-engines' ?> me-2"></i>
                             <?= isAdmin() ? 'Quản lý booking' : 'Danh sách tour của tôi' ?>
-                        </h3>
-                        <small class="text-muted">
-                            <?= isAdmin() ? 'Quản lý đặt tour, lịch khởi hành và phân bổ hướng dẫn viên.' : 'Xem danh sách các tour được phân bổ cho bạn.' ?>
-                        </small>
-                    </div>
-                    <?php if (isAdmin()): ?>
+                    </h3>
+                </div>
+                <?php if (isAdmin()): ?>
                     <div class="d-flex gap-2 flex-wrap">
-                        <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
-                            <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
-                        </a>
-                        <a href="<?= BASE_URL ?>admin/bookings/customers" class="btn btn-outline-secondary">
-                            <i class="bi bi-people me-1"></i> Khách hàng
-                        </a>
-                        <a href="<?= BASE_URL ?>admin/bookings/create" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i> Tạo booking mới
-                        </a>
-                    </div>
-                    <?php endif; ?>
+                    <a href="<?= BASE_URL ?>admin/bookings/schedule" class="btn btn-outline-info">
+                        <i class="bi bi-calendar-event me-1"></i> Lịch khởi hành
+                    </a>
+                    <a href="<?= BASE_URL ?>admin/bookings/customers" class="btn btn-outline-secondary">
+                        <i class="bi bi-people me-1"></i> Khách hàng
+                    </a>
+                    <a href="<?= BASE_URL ?>admin/bookings/create" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i> Tạo booking mới
+                    </a>
+                </div>
+                <?php endif; ?>
                 </div>
             </div>
             <div class="card-body">

@@ -49,7 +49,7 @@ $formData = $formData ?? [];
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
+                    </div>
 
                         <div class="col-md-6">
                             <label for="assigned_guide_id" class="form-label fw-semibold">
@@ -70,8 +70,12 @@ $formData = $formData ?? [];
                                 <i class="bi bi-calendar-event me-1 text-primary"></i>Ngày khởi hành <span class="text-danger">*</span>
                             </label>
                             <input type="date" class="form-control form-control-lg" id="start_date" name="start_date" 
-                                   value="<?= htmlspecialchars($formData['start_date'] ?? '') ?>" required>
-                        </div>
+                                   value="<?= htmlspecialchars($formData['start_date'] ?? '') ?>" 
+                                   min="<?= date('Y-m-d') ?>" required>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Chỉ có thể chọn ngày trong tương lai
+                            </small>
+                    </div>
 
                         <div class="col-md-6">
                             <label for="end_date" class="form-label fw-semibold">
@@ -79,30 +83,30 @@ $formData = $formData ?? [];
                             </label>
                             <input type="date" class="form-control form-control-lg" id="end_date" name="end_date" 
                                    value="<?= htmlspecialchars($formData['end_date'] ?? '') ?>">
-                        </div>
+                    </div>
 
                         <div class="col-12">
                             <label for="schedule_detail" class="form-label fw-semibold">
                                 <i class="bi bi-calendar3 me-1 text-primary"></i>Chi tiết lịch trình
                             </label>
                             <textarea class="form-control" id="schedule_detail" name="schedule_detail" rows="6"
-                                      placeholder="Nhập chi tiết lịch trình tour..."><?= htmlspecialchars($formData['schedule_detail'] ?? '') ?></textarea>
-                        </div>
+                                  placeholder="Nhập chi tiết lịch trình tour..."><?= htmlspecialchars($formData['schedule_detail'] ?? '') ?></textarea>
+                    </div>
 
                         <div class="col-12">
                             <label for="service_detail" class="form-label fw-semibold">
                                 <i class="bi bi-list-check me-1 text-primary"></i>Chi tiết dịch vụ
                             </label>
                             <textarea class="form-control" id="service_detail" name="service_detail" rows="6"
-                                      placeholder="Nhập chi tiết dịch vụ..."><?= htmlspecialchars($formData['service_detail'] ?? '') ?></textarea>
-                        </div>
+                                  placeholder="Nhập chi tiết dịch vụ..."><?= htmlspecialchars($formData['service_detail'] ?? '') ?></textarea>
+                    </div>
 
                         <div class="col-12">
                             <label for="notes" class="form-label fw-semibold">
                                 <i class="bi bi-sticky me-1 text-primary"></i>Ghi chú
                             </label>
                             <textarea class="form-control" id="notes" name="notes" rows="4"
-                                      placeholder="Ghi chú về booking..."><?= htmlspecialchars($formData['notes'] ?? '') ?></textarea>
+                                  placeholder="Ghi chú về booking..."><?= htmlspecialchars($formData['notes'] ?? '') ?></textarea>
                         </div>
                     </div>
 

@@ -47,14 +47,15 @@ ob_start();
                                 <label for="status" class="form-label fw-semibold">
                                     <i class="bi bi-info-circle me-1 text-primary"></i>Trạng thái
                                 </label>
-                                <select class="form-select form-select-lg" id="status" name="status">
-                                    <option value="">-- Chọn trạng thái --</option>
-                                    <?php foreach ($statuses as $status): ?>
-                                        <option value="<?= $status['id'] ?>" <?= ($booking['status'] == $status['id']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($status['name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-info fs-6 px-3 py-2 me-2">
+                                        <?= htmlspecialchars($booking['status_name'] ?? 'Chưa có trạng thái') ?>
+                                    </span>
+                                    <small class="text-muted">
+                                        <i class="bi bi-lock me-1"></i>Chỉ có thể thay đổi khi tạo booking mới
+                                    </small>
+                                </div>
+                                <input type="hidden" name="status" value="<?= $booking['status'] ?? '' ?>">
                             </div>
                         </div>
                     </div>
@@ -84,7 +85,11 @@ ob_start();
                                     <i class="bi bi-calendar-event me-1 text-primary"></i>Ngày khởi hành <span class="text-danger">*</span>
                                 </label>
                                 <input type="date" class="form-control form-control-lg" id="start_date" name="start_date" 
-                                       value="<?= htmlspecialchars($booking['start_date'] ?? '') ?>" required>
+                                       value="<?= htmlspecialchars($booking['start_date'] ?? '') ?>" 
+                                       min="<?= date('Y-m-d') ?>" required>
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Chỉ có thể chọn ngày trong tương lai
+                                </small>
                             </div>
 
                             <div class="col-md-3">

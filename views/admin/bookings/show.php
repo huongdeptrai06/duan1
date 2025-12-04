@@ -275,41 +275,6 @@ $errorMessage = $_GET['error'] ?? null;
             </div>
         </div>
 
-        <!-- Thay đổi trạng thái -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-arrow-repeat me-2"></i>Thay đổi trạng thái
-                </h5>
-            </div>
-            <div class="card-body">
-                <form action="<?= BASE_URL ?>admin/bookings/change-status" method="post">
-                    <input type="hidden" name="id" value="<?= $booking['id'] ?>">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="status" class="form-label">Trạng thái mới</label>
-                            <select class="form-select" id="status" name="status" required>
-                                <option value="">-- Chọn trạng thái --</option>
-                                <?php foreach ($statuses as $status): ?>
-                                    <option value="<?= $status['id'] ?>" <?= ($booking['status'] == $status['id']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($status['name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="status_note" class="form-label">Ghi chú</label>
-                            <input type="text" class="form-control" id="status_note" name="note" 
-                                   placeholder="Ghi chú về việc thay đổi trạng thái">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-check-circle me-1"></i>Cập nhật trạng thái
-                    </button>
-                </form>
-            </div>
-        </div>
-
         <!-- Thêm ghi chú -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-primary text-white">

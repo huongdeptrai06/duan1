@@ -236,11 +236,11 @@ class TourController
         }
 
         try {
-            view('admin.tours.create', [
-                'title' => 'Thêm tour',
-                'categories' => $categories,
-                'errors' => $errors,
-            ]);
+        view('admin.tours.create', [
+            'title' => 'Thêm tour',
+            'categories' => $categories,
+            'errors' => $errors,
+        ]);
         } catch (Exception $e) {
             error_log('Tour create view failed: ' . $e->getMessage());
             echo 'Lỗi: ' . htmlspecialchars($e->getMessage());

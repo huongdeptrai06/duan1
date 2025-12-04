@@ -6,17 +6,16 @@ ob_start();
         <div class="card shadow-sm">
             <div class="card-header bg-white border-0">
                 <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
-                    <div>
-                        <h3 class="card-title mb-1">
-                            <i class="bi bi-people me-2"></i>
-                            Danh sách khách hàng
-                        </h3>
-                        <small class="text-muted">Danh sách khách hàng đã đặt tour.</small>
-                    </div>
+                <div>
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-people me-2"></i>
+                        Danh sách khách hàng
+                    </h3>
+                </div>
                     <div class="d-flex gap-2">
                         <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-1"></i> Quay lại
-                        </a>
+                        <i class="bi bi-arrow-left me-1"></i> Quay lại
+                    </a>
                     </div>
                 </div>
             </div>

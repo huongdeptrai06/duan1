@@ -6,11 +6,10 @@ ob_start();
         <div class="card shadow-sm">
             <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
                 <div>
-                    <h3 class="card-title mb-1">
+                    <h3 class="card-title mb-0">
                         <i class="bi bi-person-bounding-box me-2"></i>
                         Danh sách hướng dẫn viên
                     </h3>
-                    <small class="text-muted">Quản lý thông tin HDV, phân loại nội địa / quốc tế và theo dõi lịch sử chỉnh sửa.</small>
                 </div>
                 <div class="d-flex gap-2">
                     <a href="<?= BASE_URL ?>admin/guides/create" class="btn btn-primary">

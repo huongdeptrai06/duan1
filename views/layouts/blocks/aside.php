@@ -133,6 +133,14 @@
             </ul>
           </li>
         <?php endif; ?>
+        <?php if (isAdmin()): ?>
+        <li class="nav-item">
+          <a href="<?= BASE_URL . 'admin/reports' ?>" class="nav-link">
+            <i class="nav-icon bi bi-graph-up-arrow"></i>
+            <p>Báo cáo thống kê</p>
+          </a>
+        </li>
+        <?php endif; ?>
         <li class="nav-header">HỆ THỐNG</li>
         <li class="nav-item">
           <a href="<?= BASE_URL . 'logout' ?>" class="nav-link">
