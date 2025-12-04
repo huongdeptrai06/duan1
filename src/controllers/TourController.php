@@ -101,10 +101,119 @@ class TourController
             }
         }
 
+        // Nếu là HDV, lấy thêm dữ liệu cho dashboard
+        $assignedBookings = [];
+        $leaveRequests = [];
+        $notes = [];
+        $confirmationsMap = [];
+        $guideId = null;
+
+        if ($isGuide && $currentUser) {
+            // Lấy guide_id
+            $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+            
+            if ($guidesTableExists) {
+                try {
+                    $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                    $hasUserId = $checkStmt->fetch();
+                    
+                    if ($hasUserId) {
+                        $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                        $guideStmt->execute(['user_id' => $currentUser->id]);
+                        $guide = $guideStmt->fetch();
+                        if ($guide) {
+                            $guideId = $guide['id'];
+                        }
+                    } else {
+                        $guideId = $currentUser->id;
+                    }
+                } catch (PDOException $e) {
+                    $guideId = $currentUser->id;
+                }
+            } else {
+                $guideId = $currentUser->id;
+            }
+
+            // Lấy danh sách booking được phân bổ
+            if ($guideId) {
+                try {
+                    $bookingsStmt = $pdo->prepare('
+                        SELECT b.*, 
+                               t.name as tour_name,
+                               t.price as tour_price,
+                               ts.name as status_name,
+                               u.name as customer_name
+                        FROM bookings b
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN tour_statuses ts ON b.status = ts.id
+                        LEFT JOIN users u ON b.created_by = u.id
+                        WHERE b.assigned_guide_id = :guide_id
+                        ORDER BY b.start_date DESC, b.created_at DESC
+                    ');
+                    $bookingsStmt->execute(['guide_id' => $guideId]);
+                    $assignedBookings = $bookingsStmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                    error_log('Get assigned bookings failed: ' . $e->getMessage());
+                }
+            }
+
+            // Lấy danh sách xin nghỉ
+            try {
+                $leaveStmt = $pdo->prepare('
+                    SELECT * FROM guide_leave_requests 
+                    WHERE guide_id = :guide_id 
+                    ORDER BY created_at DESC
+                ');
+                $leaveStmt->execute(['guide_id' => $guideId ?? 0]);
+                $leaveRequests = $leaveStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                // Bảng có thể chưa tồn tại
+            }
+
+            // Lấy ghi chú
+            try {
+                $notesStmt = $pdo->prepare('
+                    SELECT * FROM guide_notes 
+                    WHERE guide_id = :guide_id AND status = "approved"
+                    ORDER BY created_at DESC
+                ');
+                $notesStmt->execute(['guide_id' => $guideId ?? 0]);
+                $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                // Bảng có thể chưa tồn tại
+            }
+
+            // Lấy danh sách xác nhận tour
+            if ($guideId) {
+                try {
+                    $confStmt = $pdo->prepare('
+                        SELECT booking_id, confirmed, confirmed_at 
+                        FROM guide_tour_confirmations 
+                        WHERE guide_id = :guide_id AND status = "approved"
+                    ');
+                    $confStmt->execute(['guide_id' => $guideId]);
+                    $confirmations = $confStmt->fetchAll(PDO::FETCH_ASSOC);
+                    foreach ($confirmations as $conf) {
+                        $confirmationsMap[$conf['booking_id']] = $conf;
+                    }
+                } catch (PDOException $e) {
+                    // Bảng có thể chưa tồn tại
+                }
+            }
+        }
+
         view('admin.tours.index', [
             'title' => 'Danh sách tour',
             'tours' => $tours,
             'errors' => $errors,
+            'isGuide' => $isGuide,
+            'assignedBookings' => $assignedBookings,
+            'leaveRequests' => $leaveRequests,
+            'notes' => $notes,
+            'confirmationsMap' => $confirmationsMap,
+            'guideId' => $guideId,
+            'successMessage' => $_GET['success'] ?? null,
+            'errorMessage' => $_GET['error'] ?? null,
         ]);
     }
 

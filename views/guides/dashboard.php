@@ -19,136 +19,6 @@ ob_start();
             </div>
         <?php endif; ?>
 
-        <!-- Danh sách tour -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white border-0">
-                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
-                <div>
-                    <h3 class="card-title mb-0">
-                        <i class="bi bi-airplane-engines me-2"></i>
-                        <?= $isGuide ? 'Danh sách tour của tôi' : 'Danh sách tour' ?>
-                    </h3>
-                </div>
-                <?php if (isAdmin()): ?>
-                <div class="d-flex gap-2">
-                    <a href="<?= BASE_URL ?>admin/tours/create" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i> Thêm tour mới
-                    </a>
-                </div>
-                <?php endif; ?>
-                </div>
-            </div>
-            <div class="card-body">
-                <?php if (!empty($_GET['success'])): ?>
-                    <div class="alert alert-success alert-dismissible fade show">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <?php
-                        $successMsg = match($_GET['success']) {
-                            '1' => 'Tour đã được thêm thành công!',
-                            'updated' => 'Tour đã được cập nhật thành công!',
-                            'deleted' => 'Tour đã được xóa thành công!',
-                            default => 'Thao tác thành công!',
-                        };
-                        echo htmlspecialchars($successMsg);
-                        ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($_GET['error'])): ?>
-                    <div class="alert alert-danger alert-dismissible fade show">
-                        <i class="bi bi-exclamation-circle-fill me-2"></i>
-                        <?php
-                        $errorMsg = match($_GET['error']) {
-                            'db' => 'Không thể kết nối cơ sở dữ liệu.',
-                            'notfound' => 'Tour không tồn tại.',
-                            'delete' => 'Không thể xóa tour. Vui lòng thử lại.',
-                            default => 'Có lỗi xảy ra.',
-                        };
-                        echo htmlspecialchars($errorMsg);
-                        ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($errors)): ?>
-                    <div class="alert alert-danger">
-                        <ul class="mb-0 ps-3">
-                            <?php foreach ($errors as $error): ?>
-                                <li><?= htmlspecialchars($error) ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (empty($tours)): ?>
-                    <div class="alert alert-info mb-0">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Chưa có tour nào.
-                    </div>
-                <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Tên tour</th>
-                                    <th>Danh mục</th>
-                                    <th>Giá</th>
-                                    <th>Trạng thái</th>
-                                    <th class="text-end">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($tours as $index => $tour): ?>
-                                    <tr>
-                                        <td><?= $index + 1 ?></td>
-                                        <td>
-                                            <a href="<?= BASE_URL ?>admin/tours/show&id=<?= $tour['id'] ?>" class="fw-semibold text-decoration-none">
-                                                <?= htmlspecialchars($tour['name'] ?? 'N/A') ?>
-                                            </a>
-                                        </td>
-                                        <td><?= htmlspecialchars($tour['category_name'] ?? 'N/A') ?></td>
-                                        <td>
-                                            <?php if ($tour['price']): ?>
-                                                <?= number_format($tour['price'], 0, ',', '.') ?> đ
-                                            <?php else: ?>
-                                                <span class="text-muted">-</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php if ((int)($tour['status'] ?? 1) === 1): ?>
-                                                <span class="badge bg-success">Hoạt động</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">Ẩn</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="<?= BASE_URL ?>admin/tours/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info" title="Xem chi tiết">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <?php if (isAdmin()): ?>
-                                            <a href="<?= BASE_URL ?>admin/tours/edit&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </a>
-                                            <form action="<?= BASE_URL ?>admin/tours/delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tour này?');">
-                                                <input type="hidden" name="id" value="<?= $tour['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <?php if ($isGuide): ?>
         <!-- Xin nghỉ -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-warning text-dark">
@@ -188,11 +58,12 @@ ob_start();
                     </div>
                 </form>
 
+                <!-- Danh sách đơn xin nghỉ -->
                 <?php if (!empty($leaveRequests)): ?>
                 <hr class="my-4">
                 <h6 class="mb-3">Lịch sử đơn xin nghỉ</h6>
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Ngày bắt đầu</th>
@@ -203,7 +74,7 @@ ob_start();
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach (array_slice($leaveRequests, 0, 5) as $request): ?>
+                            <?php foreach ($leaveRequests as $request): ?>
                             <tr>
                                 <td><?= date('d/m/Y', strtotime($request['start_date'])) ?></td>
                                 <td><?= date('d/m/Y', strtotime($request['end_date'])) ?></td>
@@ -254,11 +125,12 @@ ob_start();
                     </button>
                 </form>
 
+                <!-- Danh sách ghi chú -->
                 <?php if (!empty($notes)): ?>
                 <hr class="my-4">
                 <h6 class="mb-3">Ghi chú của tôi</h6>
                 <div class="list-group">
-                    <?php foreach (array_slice($notes, 0, 5) as $note): ?>
+                    <?php foreach ($notes as $note): ?>
                     <div class="list-group-item">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
@@ -283,11 +155,11 @@ ob_start();
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-primary text-white">
                 <h5 class="card-title mb-0">
-                    <i class="bi bi-calendar-check me-2"></i>Tour được phân bổ
+                    <i class="bi bi-airplane-engines me-2"></i>Tour được phân bổ
                 </h5>
             </div>
             <div class="card-body">
-                <?php if (!empty($assignedBookings)): ?>
+                <?php if (!empty($assignedTours)): ?>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -302,34 +174,35 @@ ob_start();
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($assignedBookings as $booking): 
-                                $isConfirmed = isset($confirmationsMap[$booking['id']]) && $confirmationsMap[$booking['id']]['confirmed'] == 1;
+                            <?php 
+                            foreach ($assignedTours as $tour): 
+                                $isConfirmed = isset($confirmationsMap[$tour['id']]) && $confirmationsMap[$tour['id']]['confirmed'] == 1;
                             ?>
                             <tr>
                                 <td>
-                                    <strong><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></strong>
-                                    <?php if ($booking['tour_price']): ?>
-                                        <br><small class="text-muted"><?= number_format($booking['tour_price'], 0, ',', '.') ?> ₫</small>
+                                    <strong><?= htmlspecialchars($tour['tour_name'] ?? 'N/A') ?></strong>
+                                    <?php if ($tour['tour_price']): ?>
+                                        <br><small class="text-muted"><?= number_format($tour['tour_price'], 0, ',', '.') ?> ₫</small>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= htmlspecialchars($booking['customer_name'] ?? 'N/A') ?></td>
+                                <td><?= htmlspecialchars($tour['customer_name'] ?? 'N/A') ?></td>
                                 <td>
-                                    <?php if ($booking['start_date']): ?>
-                                        <?= date('d/m/Y', strtotime($booking['start_date'])) ?>
+                                    <?php if ($tour['start_date']): ?>
+                                        <?= date('d/m/Y', strtotime($tour['start_date'])) ?>
                                     <?php else: ?>
                                         <span class="text-muted">Chưa có</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if ($booking['end_date']): ?>
-                                        <?= date('d/m/Y', strtotime($booking['end_date'])) ?>
+                                    <?php if ($tour['end_date']): ?>
+                                        <?= date('d/m/Y', strtotime($tour['end_date'])) ?>
                                     <?php else: ?>
                                         <span class="text-muted">Chưa có</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if ($booking['status_name']): ?>
-                                        <span class="badge bg-info"><?= htmlspecialchars($booking['status_name']) ?></span>
+                                    <?php if ($tour['status_name']): ?>
+                                        <span class="badge bg-info"><?= htmlspecialchars($tour['status_name']) ?></span>
                                     <?php else: ?>
                                         <span class="badge bg-secondary">Chưa có</span>
                                     <?php endif; ?>
@@ -339,8 +212,8 @@ ob_start();
                                         <span class="badge bg-success">
                                             <i class="bi bi-check-circle me-1"></i>Đã xác nhận
                                         </span>
-                                        <?php if (isset($confirmationsMap[$booking['id']]['confirmed_at'])): ?>
-                                            <br><small class="text-muted"><?= date('d/m/Y H:i', strtotime($confirmationsMap[$booking['id']]['confirmed_at'])) ?></small>
+                                        <?php if (isset($confirmationsMap[$tour['id']]['confirmed_at'])): ?>
+                                            <br><small class="text-muted"><?= date('d/m/Y H:i', strtotime($confirmationsMap[$tour['id']]['confirmed_at'])) ?></small>
                                         <?php endif; ?>
                                     <?php else: ?>
                                         <span class="badge bg-warning">Chưa xác nhận</span>
@@ -348,14 +221,14 @@ ob_start();
                                 </td>
                                 <td>
                                     <form action="<?= BASE_URL ?>guides/confirm-tour" method="post" class="d-inline">
-                                        <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
+                                        <input type="hidden" name="booking_id" value="<?= $tour['id'] ?>">
                                         <input type="hidden" name="confirmed" value="<?= $isConfirmed ? '0' : '1' ?>">
                                         <button type="submit" class="btn btn-sm <?= $isConfirmed ? 'btn-outline-danger' : 'btn-success' ?>">
                                             <i class="bi <?= $isConfirmed ? 'bi-x-circle' : 'bi-check-circle' ?> me-1"></i>
                                             <?= $isConfirmed ? 'Hủy xác nhận' : 'Xác nhận' ?>
                                         </button>
                                     </form>
-                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-info">
+                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info">
                                         <i class="bi bi-eye me-1"></i>Chi tiết
                                     </a>
                                 </td>
@@ -371,19 +244,18 @@ ob_start();
                 <?php endif; ?>
             </div>
         </div>
-        <?php endif; ?>
     </div>
 </div>
 <?php
 $content = ob_get_clean();
 
 view('layouts.AdminLayout', [
-    'title' => $title ?? ($isGuide ? 'Danh sách tour của tôi' : 'Danh sách tour'),
-    'pageTitle' => $isGuide ? 'Danh sách tour của tôi' : 'Danh sách tour',
+    'title' => $title ?? 'Dashboard HDV',
+    'pageTitle' => 'Dashboard HDV',
     'content' => $content,
     'breadcrumb' => [
         ['label' => 'Trang chủ', 'url' => BASE_URL . 'home'],
-        ['label' => $isGuide ? 'Danh sách tour của tôi' : 'Tour', 'url' => BASE_URL . 'admin/tours', 'active' => true],
+        ['label' => 'Dashboard HDV', 'url' => BASE_URL . 'guides/dashboard', 'active' => true],
     ],
 ]);
 ?>

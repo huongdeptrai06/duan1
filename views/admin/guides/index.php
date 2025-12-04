@@ -18,6 +18,22 @@ ob_start();
                 </div>
             </div>
             <div class="card-body">
+                <?php if ($successMessage): ?>
+                    <div class="alert alert-success alert-dismissible fade show">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <?= htmlspecialchars($successMessage) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($errorMessage): ?>
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        <?= htmlspecialchars($errorMessage) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
                 <div class="mb-3 d-flex gap-2">
                     <a href="<?= BASE_URL ?>admin/guides" class="btn btn-sm btn-outline-secondary">Tất cả</a>
                     <a href="<?= BASE_URL ?>admin/guides?group=noidia" class="btn btn-sm btn-outline-secondary">Nội địa</a>
@@ -36,6 +52,7 @@ ob_start();
                                     <th>Nhóm</th>
                                     <th>Ngôn ngữ</th>
                                     <th>Kinh nghiệm</th>
+                                    <th>Đơn xin nghỉ</th>
                                     <th>Trạng thái</th>
                                     <th class="text-end">Thao tác</th>
                                 </tr>
@@ -52,6 +69,18 @@ ob_start();
                                         <td><?= ($g['group'] === 'quocte') ? 'Quốc tế' : 'Nội địa' ?></td>
                                         <td><?= htmlspecialchars($g['languages'] ?? '') ?></td>
                                         <td><?= htmlspecialchars(mb_strimwidth($g['experience'] ?? '', 0, 60, '...')) ?></td>
+                                        <td>
+                                            <?php 
+                                            $pendingCount = $pendingLeaveCounts[$g['id']] ?? 0;
+                                            if ($pendingCount > 0): 
+                                            ?>
+                                                <span class="badge bg-warning text-dark" title="<?= $pendingCount ?> đơn xin nghỉ chờ duyệt">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i><?= $pendingCount ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td>
                                             <?php if ((int)($g['status'] ?? 1) === 1): ?>
                                                 <span class="badge bg-success-subtle text-success">Hoạt động</span>

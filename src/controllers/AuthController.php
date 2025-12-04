@@ -340,12 +340,61 @@ class AuthController
             }
         }
 
+        // Lấy số đơn xin nghỉ chờ duyệt cho mỗi HDV
+        $pendingLeaveCounts = [];
+        $pendingLeaveRequests = [];
+        try {
+            // Tạo bảng nếu chưa tồn tại
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS guide_leave_requests (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    guide_id INT NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    reason TEXT NOT NULL,
+                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_guide_id (guide_id),
+                    INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            // Lấy số đơn chờ duyệt theo user_id (vì guide_id có thể là user_id)
+            $leaveStmt = $pdo->query('
+                SELECT guide_id, COUNT(*) as count 
+                FROM guide_leave_requests 
+                WHERE status = "pending" 
+                GROUP BY guide_id
+            ');
+            $counts = $leaveStmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($counts as $count) {
+                $pendingLeaveCounts[$count['guide_id']] = (int)$count['count'];
+            }
+
+            // Lấy danh sách đơn xin nghỉ chờ duyệt với tên HDV
+            $requestsStmt = $pdo->query('
+                SELECT glr.*, u.name as guide_name
+                FROM guide_leave_requests glr
+                LEFT JOIN users u ON glr.guide_id = u.id AND u.role = "huong_dan_vien"
+                WHERE glr.status = "pending"
+                ORDER BY glr.created_at DESC
+            ');
+            $pendingLeaveRequests = $requestsStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('Get pending leave requests failed: ' . $e->getMessage());
+        }
+
         view('admin.guide_list', [
             'title' => 'Danh sách hướng dẫn viên',
             'pageTitle' => 'Danh sách hướng dẫn viên',
             'guides' => $guides,
             'errors' => $errors,
             'guideGroups' => $guideGroups,
+            'pendingLeaveCounts' => $pendingLeaveCounts,
+            'pendingLeaveRequests' => $pendingLeaveRequests,
+            'successMessage' => $_GET['success'] ?? null,
+            'errorMessage' => $_GET['error'] ?? null,
         ]);
     }
 

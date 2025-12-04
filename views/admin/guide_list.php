@@ -13,6 +13,9 @@ $guideGroups = $guideGroups ?? [];
             <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-clockwise me-1"></i>Làm mới
             </a>
+            <a href="<?= BASE_URL ?>admin/guides/requests" class="btn btn-warning">
+                <i class="bi bi-clipboard-check me-1"></i>Quản lý yêu cầu HDV
+            </a>
             <a href="<?= BASE_URL ?>admin-guide-create" class="btn btn-primary">
                 <i class="bi bi-person-plus me-2"></i>Cấp tài khoản mới
             </a>
@@ -58,6 +61,13 @@ $guideGroups = $guideGroups ?? [];
     </div>
     <?php endif; ?>
 
+    <?php if (!empty($errorMessage)): ?>
+    <div class="alert alert-danger mx-3">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <?= htmlspecialchars($errorMessage) ?>
+    </div>
+    <?php endif; ?>
+
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
@@ -67,6 +77,7 @@ $guideGroups = $guideGroups ?? [];
                     <th>Vai trò</th>
                     <th>Nhóm chuyên môn</th>
                     <th>Email</th>
+                    <th>Đơn xin nghỉ</th>
                     <th>Trạng thái</th>
                     <th>Ngày tạo</th>
                     <th style="width: 180px;" class="text-center">Thao tác</th>
@@ -75,7 +86,7 @@ $guideGroups = $guideGroups ?? [];
             <tbody>
                 <?php if (empty($guides)): ?>
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         <i class="bi bi-person-dash me-2"></i>Chưa có tài khoản phù hợp để hiển thị.
                     </td>
                 </tr>
@@ -117,6 +128,18 @@ $guideGroups = $guideGroups ?? [];
                             <?php endif; ?>
                         </td>
                         <td><?= htmlspecialchars($guide['email'] ?? '') ?></td>
+                        <td>
+                            <?php 
+                            $pendingCount = $pendingLeaveCounts[$guide['id']] ?? 0;
+                            if ($pendingCount > 0): 
+                            ?>
+                                <span class="badge bg-warning text-dark" title="<?= $pendingCount ?> đơn xin nghỉ chờ duyệt">
+                                    <i class="bi bi-exclamation-triangle me-1"></i><?= $pendingCount ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php $isActive = (int)($guide['status'] ?? 0) === 1; ?>
                             <span class="badge <?= $isActive ? 'bg-success' : 'bg-secondary' ?>">

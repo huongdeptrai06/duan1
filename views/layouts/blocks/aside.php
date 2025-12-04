@@ -118,18 +118,6 @@
                   <p>Danh sách Người dùng</p>
                 </a>
               </li>
-              <li class="nav-item">
-                <a href="<?= BASE_URL . 'admin-guide-list' ?>" class="nav-link">
-                  <i class="nav-icon bi bi-circle"></i>
-                  <p>Danh sách HDV</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="<?= BASE_URL . 'admin/guide/create' ?>" class="nav-link">
-                  <i class="nav-icon bi bi-circle"></i>
-                  <p>Cấp tài khoản HDV</p>
-                </a>
-              </li>
             </ul>
           </li>
         <?php endif; ?>

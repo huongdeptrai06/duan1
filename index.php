@@ -68,11 +68,20 @@ match ($act) {
     // Guides management
     'admin/guides' => $guideController->index(),
     'admin/guides/create' => $guideController->create(),
+    // Guide dashboard (for guides only)
+    'guides/dashboard' => $guideController->dashboard(),
+    'guides/request-leave' => $guideController->requestLeave(),
+    'guides/add-note' => $guideController->addNote(),
+    'guides/confirm-tour' => $guideController->confirmTour(),
     'admin/guides/store' => $guideController->store(),
     'admin/guides/edit' => $guideController->edit(),
     'admin/guides/update' => $guideController->update(),
     'admin/guides/delete' => $guideController->delete(),
     'admin/guides/show' => $guideController->show(),
+    'admin/guides/process-leave' => $guideController->processLeaveRequest(),
+    'admin/guides/requests' => $guideController->requests(),
+    'admin/guides/process-note' => $guideController->processNote(),
+    'admin/guides/process-confirmation' => $guideController->processConfirmation(),
     // Bookings management
     'admin/bookings' => $bookingController->index(),
     'admin/bookings/create' => $bookingController->create(),
