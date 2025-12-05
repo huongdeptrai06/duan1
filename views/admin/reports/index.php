@@ -202,9 +202,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body p-4">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th class="pb-3">Trạng thái</th>
                                                 <th class="text-end pb-3">Số lượng</th>
@@ -212,7 +212,12 @@ $stats = $stats ?? [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach ($stats['booking_by_status'] as $status): ?>
+                                            <?php 
+                                            $displayed = 0;
+                                            foreach ($stats['booking_by_status'] as $status): 
+                                                if ($displayed >= 3) break;
+                                                $displayed++;
+                                            ?>
                                             <tr>
                                                 <td class="py-3">
                                                     <span class="badge bg-info px-3 py-2"><?= htmlspecialchars($status['name'] ?? 'N/A') ?></span>
@@ -221,6 +226,13 @@ $stats = $stats ?? [];
                                                 <td class="text-end fw-bold text-success py-3"><?= number_format($status['revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['booking_by_status']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['booking_by_status']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -312,9 +324,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Tour</th>
                                                 <th class="text-end">Giá</th>
@@ -323,7 +335,7 @@ $stats = $stats ?? [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach (array_slice($stats['top_tours'], 0, 5) as $index => $tour): ?>
+                                            <?php foreach (array_slice($stats['top_tours'], 0, 3) as $index => $tour): ?>
                                             <tr>
                                                 <td>
                                                     <span class="badge bg-primary me-2">#<?= $index + 1 ?></span>
@@ -352,9 +364,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Danh mục</th>
                                                 <th class="text-end">Tour</th>
@@ -363,7 +375,12 @@ $stats = $stats ?? [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach ($stats['category_stats'] as $cat): ?>
+                                            <?php 
+                                            $displayed = 0;
+                                            foreach ($stats['category_stats'] as $cat): 
+                                                if ($displayed >= 3) break;
+                                                $displayed++;
+                                            ?>
                                             <tr>
                                                 <td><?= htmlspecialchars($cat['category_name'] ?? 'N/A') ?></td>
                                                 <td class="text-end"><?= number_format($cat['tour_count'] ?? 0) ?></td>
@@ -371,6 +388,13 @@ $stats = $stats ?? [];
                                                 <td class="text-end fw-bold text-success"><?= number_format($cat['total_revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['category_stats']) > 3): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['category_stats']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -389,9 +413,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Hướng dẫn viên</th>
                                                 <th class="text-end">Số booking</th>
@@ -399,13 +423,25 @@ $stats = $stats ?? [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach ($stats['guide_stats'] as $guide): ?>
+                                            <?php 
+                                            $displayed = 0;
+                                            foreach ($stats['guide_stats'] as $guide): 
+                                                if ($displayed >= 3) break;
+                                                $displayed++;
+                                            ?>
                                             <tr>
                                                 <td><?= htmlspecialchars($guide['guide_name'] ?? 'N/A') ?></td>
                                                 <td class="text-end fw-semibold"><?= number_format($guide['booking_count'] ?? 0) ?></td>
                                                 <td class="text-end fw-bold text-success"><?= number_format($guide['total_revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['guide_stats']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['guide_stats']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -424,9 +460,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Tháng</th>
                                                 <th class="text-end">Số lượng booking</th>
@@ -442,7 +478,10 @@ $stats = $stats ?? [];
                                                     $maxCount = $month['count'];
                                                 }
                                             }
-                                            foreach ($stats['monthly_bookings'] as $month): 
+                                            $displayed = 0;
+                                            foreach ($stats['monthly_bookings'] as $month):
+                                                if ($displayed >= 3) break;
+                                                $displayed++;
                                                 $percentage = $maxCount > 0 ? ($month['count'] / $maxCount) * 100 : 0;
                                                 $monthName = date('m/Y', strtotime($month['month'] . '-01'));
                                             ?>
@@ -463,6 +502,13 @@ $stats = $stats ?? [];
                                                 </td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['monthly_bookings']) > 3): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['monthly_bookings']) - 3 ?> tháng</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -481,9 +527,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Khách hàng</th>
                                                 <th>Tour</th>
@@ -491,7 +537,7 @@ $stats = $stats ?? [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach (array_slice($stats['recent_bookings'], 0, 5) as $booking): ?>
+                                            <?php foreach (array_slice($stats['recent_bookings'], 0, 3) as $booking): ?>
                                             <tr>
                                                 <td>
                                                     <small class="text-muted"><?= htmlspecialchars($booking['customer_name'] ?? 'N/A') ?></small>
@@ -514,43 +560,36 @@ $stats = $stats ?? [];
 
                     <!-- Tour mới nhất -->
                     <?php if (!empty($stats['recent_tours'])): ?>
-                    <div class="col-md-6">
-                        <div class="card shadow-sm border-0 h-100">
+                    <div class="col-12">
+                        <div class="card shadow-sm border-0">
                             <div class="card-header bg-white border-bottom">
                                 <h5 class="card-title mb-0">
                                     <i class="bi bi-airplane-engines me-2 text-primary"></i>Tour mới nhất
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Tour</th>
-                                                <th>Danh mục</th>
-                                                <th class="text-end">Giá</th>
-                                                <th class="text-end">Booking</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach (array_slice($stats['recent_tours'], 0, 5) as $tour): ?>
-                                            <tr>
-                                                <td>
-                                                    <small><?= htmlspecialchars($tour['name'] ?? 'N/A') ?></small>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-secondary"><?= htmlspecialchars($tour['category_name'] ?? 'N/A') ?></span>
-                                                </td>
-                                                <td class="text-end">
-                                                    <small class="fw-semibold"><?= number_format($tour['price'] ?? 0, 0, ',', '.') ?> ₫</small>
-                                                </td>
-                                                <td class="text-end">
-                                                    <span class="badge bg-info"><?= number_format($tour['booking_count'] ?? 0) ?></span>
-                                                </td>
-                                            </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
+                                <div class="row g-3">
+                                    <?php foreach (array_slice($stats['recent_tours'], 0, 6) as $tour): ?>
+                                    <div class="col-md-4 col-lg-2">
+                                        <div class="card border h-100">
+                                            <div class="card-body p-3 text-center">
+                                                <h6 class="card-title mb-2 small fw-semibold" style="font-size: 0.85rem; line-height: 1.3; min-height: 2.6rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                                    <?= htmlspecialchars($tour['name'] ?? 'N/A') ?>
+                                                </h6>
+                                                <div class="mb-2">
+                                                    <span class="badge bg-secondary small"><?= htmlspecialchars($tour['category_name'] ?? 'N/A') ?></span>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <small class="text-muted d-block">Giá</small>
+                                                    <strong class="text-primary" style="font-size: 0.9rem;"><?= number_format($tour['price'] ?? 0, 0, ',', '.') ?> ₫</strong>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-info"><?= number_format($tour['booking_count'] ?? 0) ?> booking</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         </div>
@@ -567,9 +606,9 @@ $stats = $stats ?? [];
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-hover mb-0">
-                                        <thead>
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th>Tuần</th>
                                                 <th>Số lượng booking</th>
@@ -584,7 +623,10 @@ $stats = $stats ?? [];
                                                     $maxWeekCount = $week['count'];
                                                 }
                                             }
-                                            foreach ($stats['weekly_bookings'] as $week): 
+                                            $displayed = 0;
+                                            foreach ($stats['weekly_bookings'] as $week):
+                                                if ($displayed >= 3) break;
+                                                $displayed++;
                                                 $percentage = $maxWeekCount > 0 ? ($week['count'] / $maxWeekCount) * 100 : 0;
                                             ?>
                                             <tr>
@@ -603,6 +645,13 @@ $stats = $stats ?? [];
                                                 </td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['weekly_bookings']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['weekly_bookings']) - 3 ?> tuần</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>

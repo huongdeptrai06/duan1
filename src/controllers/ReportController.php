@@ -16,24 +16,48 @@ class ReportController
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
+            // Thống kê tổng quan
+            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            
             try {
-                // Thống kê tổng quan
-                $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                
                 $totalToursResult = $pdo->query('SELECT COUNT(*) as count FROM tours WHERE status = 1')->fetch();
                 $stats['total_tours'] = $totalToursResult['count'] ?? 0;
-                
+            } catch (PDOException $e) {
+                error_log('Get total tours failed: ' . $e->getMessage());
+                $stats['total_tours'] = 0;
+            }
+            
+            try {
                 $totalBookingsResult = $pdo->query('SELECT COUNT(*) as count FROM bookings')->fetch();
                 $stats['total_bookings'] = $totalBookingsResult['count'] ?? 0;
-                
+            } catch (PDOException $e) {
+                error_log('Get total bookings failed: ' . $e->getMessage());
+                $stats['total_bookings'] = 0;
+            }
+            
+            try {
                 $totalCustomersResult = $pdo->query('SELECT COUNT(DISTINCT created_by) as count FROM bookings')->fetch();
                 $stats['total_customers'] = $totalCustomersResult['count'] ?? 0;
-                
+            } catch (PDOException $e) {
+                error_log('Get total customers failed: ' . $e->getMessage());
+                $stats['total_customers'] = 0;
+            }
+            
+            try {
                 $totalGuidesResult = $pdo->query('SELECT COUNT(*) as count FROM users WHERE role = "huong_dan_vien" AND status = 1')->fetch();
                 $stats['total_guides'] = $totalGuidesResult['count'] ?? 0;
-                
+            } catch (PDOException $e) {
+                error_log('Get total guides failed: ' . $e->getMessage());
+                $stats['total_guides'] = 0;
+            }
+            
+            try {
                 $totalCategoriesResult = $pdo->query('SELECT COUNT(*) as count FROM categories WHERE status = 1')->fetch();
                 $stats['total_categories'] = $totalCategoriesResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total categories failed: ' . $e->getMessage());
+                $stats['total_categories'] = 0;
+            }
 
                 // Thống kê doanh thu
                 try {
@@ -104,66 +128,86 @@ class ReportController
                 }
 
                 // Thống kê booking theo tháng (12 tháng gần nhất)
-                $monthlyBookings = $pdo->query('
-                    SELECT 
-                        DATE_FORMAT(created_at, "%Y-%m") as month,
-                        DATE_FORMAT(created_at, "%m/%Y") as month_display,
-                        COUNT(*) as count,
-                        COALESCE(SUM(t.price), 0) as revenue
-                    FROM bookings b
-                    LEFT JOIN tours t ON b.tour_id = t.id
-                    WHERE b.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-                    GROUP BY DATE_FORMAT(created_at, "%Y-%m"), DATE_FORMAT(created_at, "%m/%Y")
-                    ORDER BY month ASC
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['monthly_bookings'] = $monthlyBookings;
+                try {
+                    $monthlyBookings = $pdo->query('
+                        SELECT 
+                            DATE_FORMAT(created_at, "%Y-%m") as month,
+                            DATE_FORMAT(created_at, "%m/%Y") as month_display,
+                            COUNT(*) as count,
+                            COALESCE(SUM(t.price), 0) as revenue
+                        FROM bookings b
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        WHERE b.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                        GROUP BY DATE_FORMAT(created_at, "%Y-%m"), DATE_FORMAT(created_at, "%m/%Y")
+                        ORDER BY month ASC
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['monthly_bookings'] = $monthlyBookings;
+                } catch (PDOException $e) {
+                    error_log('Get monthly bookings failed: ' . $e->getMessage());
+                    $stats['monthly_bookings'] = [];
+                }
 
                 // Thống kê booking theo tuần (8 tuần gần nhất)
-                $weeklyBookings = $pdo->query('
-                    SELECT 
-                        YEARWEEK(created_at, 1) as week,
-                        DATE_FORMAT(MIN(created_at), "%d/%m/%Y") as week_start,
-                        COUNT(*) as count
-                    FROM bookings
-                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 8 WEEK)
-                    GROUP BY YEARWEEK(created_at, 1)
-                    ORDER BY week ASC
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['weekly_bookings'] = $weeklyBookings;
+                try {
+                    $weeklyBookings = $pdo->query('
+                        SELECT 
+                            YEARWEEK(created_at, 1) as week,
+                            DATE_FORMAT(MIN(created_at), "%d/%m/%Y") as week_start,
+                            COUNT(*) as count
+                        FROM bookings
+                        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 8 WEEK)
+                        GROUP BY YEARWEEK(created_at, 1)
+                        ORDER BY week ASC
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['weekly_bookings'] = $weeklyBookings;
+                } catch (PDOException $e) {
+                    error_log('Get weekly bookings failed: ' . $e->getMessage());
+                    $stats['weekly_bookings'] = [];
+                }
 
                 // Top 10 tour phổ biến nhất
-                $topTours = $pdo->query('
-                    SELECT 
-                        t.id,
-                        t.name,
-                        t.price,
-                        COUNT(b.id) as booking_count,
-                        COALESCE(SUM(t.price), 0) as total_revenue
-                    FROM tours t
-                    LEFT JOIN bookings b ON t.id = b.tour_id
-                    WHERE t.status = 1
-                    GROUP BY t.id, t.name, t.price
-                    ORDER BY booking_count DESC, total_revenue DESC
-                    LIMIT 10
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['top_tours'] = $topTours;
+                try {
+                    $topTours = $pdo->query('
+                        SELECT 
+                            t.id,
+                            t.name,
+                            t.price,
+                            COUNT(b.id) as booking_count,
+                            COALESCE(SUM(t.price), 0) as total_revenue
+                        FROM tours t
+                        LEFT JOIN bookings b ON t.id = b.tour_id
+                        WHERE t.status = 1
+                        GROUP BY t.id, t.name, t.price
+                        ORDER BY booking_count DESC, total_revenue DESC
+                        LIMIT 10
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['top_tours'] = $topTours;
+                } catch (PDOException $e) {
+                    error_log('Get top tours failed: ' . $e->getMessage());
+                    $stats['top_tours'] = [];
+                }
 
                 // Thống kê theo danh mục tour
-                $categoryStats = $pdo->query('
-                    SELECT 
-                        c.id,
-                        c.name as category_name,
-                        COUNT(DISTINCT t.id) as tour_count,
-                        COUNT(b.id) as booking_count,
-                        COALESCE(SUM(t.price), 0) as total_revenue
-                    FROM categories c
-                    LEFT JOIN tours t ON c.id = t.category_id AND t.status = 1
-                    LEFT JOIN bookings b ON t.id = b.tour_id
-                    WHERE c.status = 1
-                    GROUP BY c.id, c.name
-                    ORDER BY booking_count DESC, total_revenue DESC
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['category_stats'] = $categoryStats;
+                try {
+                    $categoryStats = $pdo->query('
+                        SELECT 
+                            c.id,
+                            c.name as category_name,
+                            COUNT(DISTINCT t.id) as tour_count,
+                            COUNT(b.id) as booking_count,
+                            COALESCE(SUM(t.price), 0) as total_revenue
+                        FROM categories c
+                        LEFT JOIN tours t ON c.id = t.category_id AND t.status = 1
+                        LEFT JOIN bookings b ON t.id = b.tour_id
+                        WHERE c.status = 1
+                        GROUP BY c.id, c.name
+                        ORDER BY booking_count DESC, total_revenue DESC
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['category_stats'] = $categoryStats;
+                } catch (PDOException $e) {
+                    error_log('Get category stats failed: ' . $e->getMessage());
+                    $stats['category_stats'] = [];
+                }
 
                 // Thống kê theo hướng dẫn viên
                 try {
@@ -209,73 +253,83 @@ class ReportController
                 }
 
                 // Thống kê booking theo ngày trong tháng hiện tại
-                $dailyBookings = $pdo->query('
-                    SELECT 
-                        DATE(created_at) as date,
-                        DATE_FORMAT(created_at, "%d/%m") as date_display,
-                        DAY(created_at) as day,
-                        COUNT(*) as count
-                    FROM bookings
-                    WHERE MONTH(created_at) = MONTH(NOW()) 
-                      AND YEAR(created_at) = YEAR(NOW())
-                    GROUP BY DATE(created_at), DATE_FORMAT(created_at, "%d/%m"), DAY(created_at)
-                    ORDER BY date ASC
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['daily_bookings'] = $dailyBookings;
+                try {
+                    $dailyBookings = $pdo->query('
+                        SELECT 
+                            DATE(created_at) as date,
+                            DATE_FORMAT(created_at, "%d/%m") as date_display,
+                            DAY(created_at) as day,
+                            COUNT(*) as count
+                        FROM bookings
+                        WHERE MONTH(created_at) = MONTH(NOW()) 
+                          AND YEAR(created_at) = YEAR(NOW())
+                        GROUP BY DATE(created_at), DATE_FORMAT(created_at, "%d/%m"), DAY(created_at)
+                        ORDER BY date ASC
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['daily_bookings'] = $dailyBookings;
+                } catch (PDOException $e) {
+                    error_log('Get daily bookings failed: ' . $e->getMessage());
+                    $stats['daily_bookings'] = [];
+                }
 
                 // Thống kê tour mới nhất (10 tour)
-                $recentTours = $pdo->query('
-                    SELECT 
-                        t.id,
-                        t.name,
-                        t.price,
-                        c.name as category_name,
-                        COUNT(b.id) as booking_count,
-                        t.created_at
-                    FROM tours t
-                    LEFT JOIN categories c ON t.category_id = c.id
-                    LEFT JOIN bookings b ON t.id = b.tour_id
-                    WHERE t.status = 1
-                    GROUP BY t.id, t.name, t.price, c.name, t.created_at
-                    ORDER BY t.created_at DESC
-                    LIMIT 10
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['recent_tours'] = $recentTours;
+                try {
+                    $recentTours = $pdo->query('
+                        SELECT 
+                            t.id,
+                            t.name,
+                            t.price,
+                            c.name as category_name,
+                            COUNT(b.id) as booking_count,
+                            t.created_at
+                        FROM tours t
+                        LEFT JOIN categories c ON t.category_id = c.id
+                        LEFT JOIN bookings b ON t.id = b.tour_id
+                        WHERE t.status = 1
+                        GROUP BY t.id, t.name, t.price, c.name, t.created_at
+                        ORDER BY t.created_at DESC
+                        LIMIT 10
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['recent_tours'] = $recentTours;
+                } catch (PDOException $e) {
+                    error_log('Get recent tours failed: ' . $e->getMessage());
+                    $stats['recent_tours'] = [];
+                }
 
                 // Thống kê booking mới nhất (10 booking)
-                $recentBookings = $pdo->query('
-                    SELECT 
-                        b.id,
-                        b.created_at,
-                        t.name as tour_name,
-                        u.name as customer_name,
-                        b.status
-                    FROM bookings b
-                    LEFT JOIN tours t ON b.tour_id = t.id
-                    LEFT JOIN users u ON b.created_by = u.id
-                    ORDER BY b.created_at DESC
-                    LIMIT 10
-                ')->fetchAll(PDO::FETCH_ASSOC);
-                $stats['recent_bookings'] = $recentBookings;
+                try {
+                    $recentBookings = $pdo->query('
+                        SELECT 
+                            b.id,
+                            b.created_at,
+                            t.name as tour_name,
+                            u.name as customer_name,
+                            b.status
+                        FROM bookings b
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN users u ON b.created_by = u.id
+                        ORDER BY b.created_at DESC
+                        LIMIT 10
+                    ')->fetchAll(PDO::FETCH_ASSOC);
+                    $stats['recent_bookings'] = $recentBookings;
+                } catch (PDOException $e) {
+                    error_log('Get recent bookings failed: ' . $e->getMessage());
+                    $stats['recent_bookings'] = [];
+                }
 
                 // Tính toán tỷ lệ
-                $stats['booking_per_tour'] = $stats['total_tours'] > 0 
-                    ? round($stats['total_bookings'] / $stats['total_tours'], 2) 
+                $stats['booking_per_tour'] = ($stats['total_tours'] ?? 0) > 0 
+                    ? round(($stats['total_bookings'] ?? 0) / ($stats['total_tours'] ?? 1), 2) 
                     : 0;
-                $stats['booking_per_customer'] = $stats['total_customers'] > 0 
-                    ? round($stats['total_bookings'] / $stats['total_customers'], 2) 
+                $stats['booking_per_customer'] = ($stats['total_customers'] ?? 0) > 0 
+                    ? round(($stats['total_bookings'] ?? 0) / ($stats['total_customers'] ?? 1), 2) 
                     : 0;
-                $stats['booking_per_guide'] = $stats['total_guides'] > 0 
-                    ? round($stats['total_bookings'] / $stats['total_guides'], 2) 
+                $stats['booking_per_guide'] = ($stats['total_guides'] ?? 0) > 0 
+                    ? round(($stats['total_bookings'] ?? 0) / ($stats['total_guides'] ?? 1), 2) 
                     : 0;
-                $stats['avg_revenue_per_booking'] = $stats['total_bookings'] > 0 
-                    ? round($stats['total_revenue'] / $stats['total_bookings'], 0) 
+                $stats['avg_revenue_per_booking'] = ($stats['total_bookings'] ?? 0) > 0 
+                    ? round(($stats['total_revenue'] ?? 0) / ($stats['total_bookings'] ?? 1), 0) 
                     : 0;
-
-            } catch (PDOException $e) {
-                error_log('Reports index failed: ' . $e->getMessage());
-                $errors[] = 'Không thể tải dữ liệu thống kê.';
-            }
         }
 
         view('admin.reports.index', [

@@ -59,20 +59,22 @@ ob_start();
                                         <td><?= htmlspecialchars($request['reason']) ?></td>
                                         <td><?= date('d/m/Y H:i', strtotime($request['created_at'])) ?></td>
                                         <td>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-leave" method="post" class="d-inline">
-                                                <input type="hidden" name="request_id" value="<?= $request['id'] ?>">
-                                                <input type="hidden" name="action" value="approve">
-                                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Bạn có chắc chắn muốn duyệt đơn xin nghỉ này?');">
-                                                    <i class="bi bi-check-circle me-1"></i>Duyệt
-                                                </button>
-                                            </form>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-leave" method="post" class="d-inline">
-                                                <input type="hidden" name="request_id" value="<?= $request['id'] ?>">
-                                                <input type="hidden" name="action" value="reject">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc chắn muốn từ chối đơn xin nghỉ này?');">
-                                                    <i class="bi bi-x-circle me-1"></i>Từ chối
-                                                </button>
-                                            </form>
+                                            <div class="d-flex gap-2">
+                                                <form action="<?= BASE_URL ?>admin/guides/process-leave" method="post" class="d-inline">
+                                                    <input type="hidden" name="request_id" value="<?= $request['id'] ?>">
+                                                    <input type="hidden" name="action" value="approve">
+                                                    <button type="submit" class="btn btn-sm btn-success action-btn" onclick="return confirm('Bạn có chắc chắn muốn duyệt đơn xin nghỉ này?');">
+                                                        <i class="bi bi-check-circle me-1"></i>Duyệt
+                                                    </button>
+                                                </form>
+                                                <form action="<?= BASE_URL ?>admin/guides/process-leave" method="post" class="d-inline">
+                                                    <input type="hidden" name="request_id" value="<?= $request['id'] ?>">
+                                                    <input type="hidden" name="action" value="reject">
+                                                    <button type="submit" class="btn btn-sm btn-danger action-btn" onclick="return confirm('Bạn có chắc chắn muốn từ chối đơn xin nghỉ này?');">
+                                                        <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -110,20 +112,151 @@ ob_start();
                                         <td><?= nl2br(htmlspecialchars($note['note'])) ?></td>
                                         <td><?= date('d/m/Y H:i', strtotime($note['created_at'])) ?></td>
                                         <td>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-note" method="post" class="d-inline">
-                                                <input type="hidden" name="note_id" value="<?= $note['id'] ?>">
-                                                <input type="hidden" name="action" value="approve">
-                                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Bạn có chắc chắn muốn duyệt ghi chú này?');">
-                                                    <i class="bi bi-check-circle me-1"></i>Duyệt
-                                                </button>
-                                            </form>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-note" method="post" class="d-inline">
-                                                <input type="hidden" name="note_id" value="<?= $note['id'] ?>">
-                                                <input type="hidden" name="action" value="reject">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc chắn muốn từ chối ghi chú này?');">
-                                                    <i class="bi bi-x-circle me-1"></i>Từ chối
-                                                </button>
-                                            </form>
+                                            <div class="d-flex gap-2">
+                                                <form action="<?= BASE_URL ?>admin/guides/process-note" method="post" class="d-inline">
+                                                    <input type="hidden" name="note_id" value="<?= $note['id'] ?>">
+                                                    <input type="hidden" name="action" value="approve">
+                                                    <button type="submit" class="btn btn-sm btn-success action-btn" onclick="return confirm('Bạn có chắc chắn muốn duyệt ghi chú này?');">
+                                                        <i class="bi bi-check-circle me-1"></i>Duyệt
+                                                    </button>
+                                                </form>
+                                                <form action="<?= BASE_URL ?>admin/guides/process-note" method="post" class="d-inline">
+                                                    <input type="hidden" name="note_id" value="<?= $note['id'] ?>">
+                                                    <input type="hidden" name="action" value="reject">
+                                                    <button type="submit" class="btn btn-sm btn-danger action-btn" onclick="return confirm('Bạn có chắc chắn muốn từ chối ghi chú này?');">
+                                                        <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Yêu cầu từ chối tour -->
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-x-circle me-2 text-danger"></i>
+                        Yêu cầu từ chối tour chờ duyệt (<?= count($pendingRejections ?? []) ?>)
+                    </h5>
+                    <?php if (empty($pendingRejections ?? [])): ?>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>Không có yêu cầu từ chối tour nào chờ duyệt.
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>HDV</th>
+                                        <th>Tour</th>
+                                        <th>Ngày khởi hành</th>
+                                        <th>Ngày kết thúc</th>
+                                        <th>Lý do từ chối</th>
+                                        <th>Ngày gửi</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($pendingRejections as $rejection): ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($rejection['guide_name'] ?? 'N/A') ?></strong></td>
+                                        <td>
+                                            <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $rejection['booking_id'] ?>" class="text-decoration-none">
+                                                <?= htmlspecialchars($rejection['tour_name'] ?? 'N/A') ?>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <?php if ($rejection['booking_start_date']): ?>
+                                                <?= date('d/m/Y', strtotime($rejection['booking_start_date'])) ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">Chưa có</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($rejection['booking_end_date']): ?>
+                                                <?= date('d/m/Y', strtotime($rejection['booking_end_date'])) ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">Chưa có</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= nl2br(htmlspecialchars($rejection['reason'])) ?></td>
+                                        <td><?= date('d/m/Y H:i', strtotime($rejection['created_at'])) ?></td>
+                                        <td>
+                                            <div class="d-flex gap-2">
+                                                <form action="<?= BASE_URL ?>admin/guides/process-rejection" method="post" class="d-inline">
+                                                    <input type="hidden" name="rejection_id" value="<?= $rejection['id'] ?>">
+                                                    <input type="hidden" name="action" value="approve">
+                                                    <button type="button" class="btn btn-sm btn-success action-btn" data-bs-toggle="modal" data-bs-target="#approveRejectionModal<?= $rejection['id'] ?>">
+                                                        <i class="bi bi-check-circle me-1"></i>Duyệt
+                                                    </button>
+                                                </form>
+                                                <form action="<?= BASE_URL ?>admin/guides/process-rejection" method="post" class="d-inline">
+                                                    <input type="hidden" name="rejection_id" value="<?= $rejection['id'] ?>">
+                                                    <input type="hidden" name="action" value="reject">
+                                                    <button type="button" class="btn btn-sm btn-danger action-btn" data-bs-toggle="modal" data-bs-target="#rejectRejectionModal<?= $rejection['id'] ?>">
+                                                        <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            
+                                            <!-- Modal duyệt yêu cầu từ chối -->
+                                            <div class="modal fade" id="approveRejectionModal<?= $rejection['id'] ?>" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Duyệt yêu cầu từ chối tour</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <form action="<?= BASE_URL ?>admin/guides/process-rejection" method="post">
+                                                            <div class="modal-body">
+                                                                <p>Bạn có chắc chắn muốn duyệt yêu cầu từ chối tour này? Tour sẽ được gỡ khỏi hướng dẫn viên.</p>
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Ghi chú (tùy chọn)</label>
+                                                                    <textarea class="form-control" name="admin_note" rows="3" placeholder="Nhập ghi chú..."></textarea>
+                                                                </div>
+                                                                <input type="hidden" name="rejection_id" value="<?= $rejection['id'] ?>">
+                                                                <input type="hidden" name="action" value="approve">
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                                <button type="submit" class="btn btn-success">Duyệt</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Modal từ chối yêu cầu từ chối -->
+                                            <div class="modal fade" id="rejectRejectionModal<?= $rejection['id'] ?>" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Từ chối yêu cầu từ chối tour</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <form action="<?= BASE_URL ?>admin/guides/process-rejection" method="post">
+                                                            <div class="modal-body">
+                                                                <p>Bạn có chắc chắn muốn từ chối yêu cầu này? Hướng dẫn viên vẫn sẽ được phân bổ tour.</p>
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Lý do (tùy chọn)</label>
+                                                                    <textarea class="form-control" name="admin_note" rows="3" placeholder="Nhập lý do từ chối..."></textarea>
+                                                                </div>
+                                                                <input type="hidden" name="rejection_id" value="<?= $rejection['id'] ?>">
+                                                                <input type="hidden" name="action" value="reject">
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                                <button type="submit" class="btn btn-danger">Từ chối</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -177,20 +310,22 @@ ob_start();
                                         </td>
                                         <td><?= date('d/m/Y H:i', strtotime($conf['created_at'])) ?></td>
                                         <td>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-confirmation" method="post" class="d-inline">
-                                                <input type="hidden" name="confirmation_id" value="<?= $conf['id'] ?>">
-                                                <input type="hidden" name="action" value="approve">
-                                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Bạn có chắc chắn muốn duyệt xác nhận tour này?');">
-                                                    <i class="bi bi-check-circle me-1"></i>Duyệt
-                                                </button>
-                                            </form>
-                                            <form action="<?= BASE_URL ?>admin/guides/process-confirmation" method="post" class="d-inline">
-                                                <input type="hidden" name="confirmation_id" value="<?= $conf['id'] ?>">
-                                                <input type="hidden" name="action" value="reject">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc chắn muốn từ chối xác nhận tour này?');">
-                                                    <i class="bi bi-x-circle me-1"></i>Từ chối
-                                                </button>
-                                            </form>
+                                            <div class="d-flex gap-2">
+                                                <form action="<?= BASE_URL ?>admin/guides/process-confirmation" method="post" class="d-inline">
+                                                    <input type="hidden" name="confirmation_id" value="<?= $conf['id'] ?>">
+                                                    <input type="hidden" name="action" value="approve">
+                                                    <button type="submit" class="btn btn-sm btn-success action-btn" onclick="return confirm('Bạn có chắc chắn muốn duyệt xác nhận tour này?');">
+                                                        <i class="bi bi-check-circle me-1"></i>Duyệt
+                                                    </button>
+                                                </form>
+                                                <form action="<?= BASE_URL ?>admin/guides/process-confirmation" method="post" class="d-inline">
+                                                    <input type="hidden" name="confirmation_id" value="<?= $conf['id'] ?>">
+                                                    <input type="hidden" name="action" value="reject">
+                                                    <button type="submit" class="btn btn-sm btn-danger action-btn" onclick="return confirm('Bạn có chắc chắn muốn từ chối xác nhận tour này?');">
+                                                        <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -216,4 +351,20 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
+<style>
+.action-btn {
+    min-width: 100px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn i {
+    font-size: 0.9rem;
+}
+</style>
+
+
+
 

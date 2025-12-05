@@ -733,6 +733,116 @@ class GuideController
         exit;
     }
 
+    // Từ chối tour - gửi yêu cầu cho admin duyệt
+    public function rejectTour(): void
+    {
+        requireGuideOrAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'admin/tours');
+            exit;
+        }
+
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $reason = trim($_POST['reason'] ?? '');
+
+        if ($bookingId <= 0) {
+            header('Location: ' . BASE_URL . 'admin/tours&error=' . urlencode('Booking không hợp lệ.'));
+            exit;
+        }
+
+        if (empty($reason)) {
+            header('Location: ' . BASE_URL . 'admin/tours&error=' . urlencode('Vui lòng nhập lý do từ chối.'));
+            exit;
+        }
+
+        $currentUser = getCurrentUser();
+        $pdo = getDB();
+
+        // Lấy guide_id
+        $guideId = null;
+        $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+        
+        if ($guidesTableExists) {
+            try {
+                $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                $hasUserId = $checkStmt->fetch();
+                
+                if ($hasUserId) {
+                    $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                    $guideStmt->execute(['user_id' => $currentUser->id]);
+                    $guide = $guideStmt->fetch();
+                    if ($guide) {
+                        $guideId = $guide['id'];
+                    }
+                } else {
+                    $guideId = $currentUser->id;
+                }
+            } catch (PDOException $e) {
+                $guideId = $currentUser->id;
+            }
+        } else {
+            $guideId = $currentUser->id;
+        }
+
+        // Kiểm tra booking có thuộc về guide này không
+        try {
+            $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id AND assigned_guide_id = :guide_id LIMIT 1');
+            $checkStmt->execute(['id' => $bookingId, 'guide_id' => $guideId]);
+            $booking = $checkStmt->fetch();
+
+            if (!$booking) {
+                header('Location: ' . BASE_URL . 'admin/tours&error=' . urlencode('Bạn không có quyền từ chối tour này.'));
+                exit;
+            }
+
+            // Tạo bảng nếu chưa tồn tại
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS guide_tour_rejections (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    booking_id INT NOT NULL,
+                    guide_id INT NOT NULL,
+                    reason TEXT NOT NULL,
+                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    admin_note TEXT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_guide_id (guide_id),
+                    INDEX idx_booking_id (booking_id),
+                    INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            // Kiểm tra xem đã có yêu cầu từ chối chưa
+            $checkRejectionStmt = $pdo->prepare('SELECT id FROM guide_tour_rejections WHERE booking_id = :booking_id AND guide_id = :guide_id AND status = "pending" LIMIT 1');
+            $checkRejectionStmt->execute(['booking_id' => $bookingId, 'guide_id' => $guideId]);
+            $existingRejection = $checkRejectionStmt->fetch();
+
+            if ($existingRejection) {
+                header('Location: ' . BASE_URL . 'admin/tours&error=' . urlencode('Bạn đã gửi yêu cầu từ chối tour này. Vui lòng chờ admin duyệt.'));
+                exit;
+            }
+
+            // Thêm yêu cầu từ chối
+            $stmt = $pdo->prepare('
+                INSERT INTO guide_tour_rejections (booking_id, guide_id, reason, status, created_at)
+                VALUES (:booking_id, :guide_id, :reason, "pending", NOW())
+            ');
+            
+            $stmt->execute([
+                'booking_id' => $bookingId,
+                'guide_id' => $guideId,
+                'reason' => $reason,
+            ]);
+
+            header('Location: ' . BASE_URL . 'admin/tours&success=' . urlencode('Đã gửi yêu cầu từ chối tour. Vui lòng chờ admin duyệt.'));
+        } catch (PDOException $e) {
+            error_log('Reject tour failed: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . 'admin/tours&error=' . urlencode('Không thể gửi yêu cầu từ chối tour.'));
+        }
+        exit;
+    }
+
     // Xử lý xác nhận/từ chối đơn xin nghỉ
     public function processLeaveRequest(): void
     {
@@ -818,6 +928,7 @@ class GuideController
         $pendingLeaveRequests = [];
         $pendingNotes = [];
         $pendingConfirmations = [];
+        $pendingRejections = [];
 
         try {
             // Tạo các bảng nếu chưa tồn tại
@@ -889,6 +1000,80 @@ class GuideController
                 error_log('Get pending confirmations failed: ' . $e->getMessage());
             }
 
+            // Tạo bảng guide_tour_rejections nếu chưa tồn tại
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS guide_tour_rejections (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    booking_id INT NOT NULL,
+                    guide_id INT NOT NULL,
+                    reason TEXT NOT NULL,
+                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    admin_note TEXT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_guide_id (guide_id),
+                    INDEX idx_booking_id (booking_id),
+                    INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            // Lấy yêu cầu từ chối tour chờ duyệt
+            try {
+                // Kiểm tra xem bảng guides có tồn tại và có cột user_id không
+                $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+                $hasUserId = false;
+                
+                if ($guidesTableExists) {
+                    try {
+                        $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                        $hasUserId = (bool)$checkStmt->fetch();
+                    } catch (PDOException $e) {
+                        // Bỏ qua
+                    }
+                }
+
+                if ($guidesTableExists && $hasUserId) {
+                    // Nếu có bảng guides và có user_id
+                    $rejectStmt = $pdo->query('
+                        SELECT gtr.*, 
+                               COALESCE(g.full_name, u.name) as guide_name,
+                               t.name as tour_name,
+                               b.start_date as booking_start_date,
+                               b.end_date as booking_end_date,
+                               b.id as booking_id
+                        FROM guide_tour_rejections gtr
+                        LEFT JOIN bookings b ON gtr.booking_id = b.id
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN guides g ON gtr.guide_id = g.id
+                        LEFT JOIN users u ON g.user_id = u.id AND u.role = "huong_dan_vien"
+                        WHERE gtr.status = "pending"
+                        ORDER BY gtr.created_at DESC
+                    ');
+                } else {
+                    // Nếu không có bảng guides hoặc không có user_id, join trực tiếp với users
+                    $rejectStmt = $pdo->query('
+                        SELECT gtr.*, 
+                               u.name as guide_name,
+                               t.name as tour_name,
+                               b.start_date as booking_start_date,
+                               b.end_date as booking_end_date,
+                               b.id as booking_id
+                        FROM guide_tour_rejections gtr
+                        LEFT JOIN bookings b ON gtr.booking_id = b.id
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN users u ON gtr.guide_id = u.id AND u.role = "huong_dan_vien"
+                        WHERE gtr.status = "pending"
+                        ORDER BY gtr.created_at DESC
+                    ');
+                }
+                
+                $pendingRejections = $rejectStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                // Bảng có thể chưa tồn tại
+                error_log('Get pending rejections failed: ' . $e->getMessage());
+                $pendingRejections = [];
+            }
+
         } catch (PDOException $e) {
             error_log('Get pending requests failed: ' . $e->getMessage());
             $errors[] = 'Không thể tải danh sách yêu cầu.';
@@ -900,6 +1085,7 @@ class GuideController
             'pendingLeaveRequests' => $pendingLeaveRequests,
             'pendingNotes' => $pendingNotes,
             'pendingConfirmations' => $pendingConfirmations,
+            'pendingRejections' => $pendingRejections,
             'errors' => $errors,
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
@@ -998,6 +1184,77 @@ class GuideController
         } catch (PDOException $e) {
             error_log('Process confirmation failed: ' . $e->getMessage());
             header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không thể xử lý xác nhận tour.'));
+        }
+        exit;
+    }
+
+    // Xử lý duyệt/từ chối yêu cầu từ chối tour
+    public function processRejection(): void
+    {
+        requireAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'admin/guides/requests');
+            exit;
+        }
+
+        $rejectionId = (int)($_POST['rejection_id'] ?? 0);
+        $action = $_POST['action'] ?? '';
+        $adminNote = trim($_POST['admin_note'] ?? '');
+
+        if ($rejectionId <= 0 || !in_array($action, ['approve', 'reject'])) {
+            header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Thông tin không hợp lệ.'));
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không thể kết nối database.'));
+            exit;
+        }
+
+        try {
+            $status = $action === 'approve' ? 'approved' : 'rejected';
+            
+            // Lấy thông tin rejection để cập nhật booking
+            $rejectionStmt = $pdo->prepare('SELECT booking_id, guide_id FROM guide_tour_rejections WHERE id = :id LIMIT 1');
+            $rejectionStmt->execute(['id' => $rejectionId]);
+            $rejection = $rejectionStmt->fetch();
+            
+            if (!$rejection) {
+                header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không tìm thấy yêu cầu từ chối.'));
+                exit;
+            }
+
+            // Cập nhật status của rejection
+            $stmt = $pdo->prepare('
+                UPDATE guide_tour_rejections 
+                SET status = :status, 
+                    admin_note = :admin_note,
+                    updated_at = NOW() 
+                WHERE id = :id
+            ');
+            $stmt->execute([
+                'status' => $status,
+                'admin_note' => $adminNote ?: null,
+                'id' => $rejectionId,
+            ]);
+
+            // Nếu duyệt yêu cầu từ chối, xóa assigned_guide_id khỏi booking
+            if ($action === 'approve') {
+                $updateBookingStmt = $pdo->prepare('
+                    UPDATE bookings 
+                    SET assigned_guide_id = NULL, updated_at = NOW() 
+                    WHERE id = :booking_id
+                ');
+                $updateBookingStmt->execute(['booking_id' => $rejection['booking_id']]);
+            }
+
+            $message = $action === 'approve' ? 'Đã duyệt yêu cầu từ chối tour. Tour đã được gỡ khỏi hướng dẫn viên.' : 'Đã từ chối yêu cầu từ chối tour.';
+            header('Location: ' . BASE_URL . 'admin/guides/requests&success=' . urlencode($message));
+        } catch (PDOException $e) {
+            error_log('Process rejection failed: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không thể xử lý yêu cầu từ chối tour.'));
         }
         exit;
     }

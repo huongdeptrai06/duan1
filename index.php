@@ -73,6 +73,7 @@ match ($act) {
     'guides/request-leave' => $guideController->requestLeave(),
     'guides/add-note' => $guideController->addNote(),
     'guides/confirm-tour' => $guideController->confirmTour(),
+    'guides/reject-tour' => $guideController->rejectTour(),
     'admin/guides/store' => $guideController->store(),
     'admin/guides/edit' => $guideController->edit(),
     'admin/guides/update' => $guideController->update(),
@@ -82,6 +83,7 @@ match ($act) {
     'admin/guides/requests' => $guideController->requests(),
     'admin/guides/process-note' => $guideController->processNote(),
     'admin/guides/process-confirmation' => $guideController->processConfirmation(),
+    'admin/guides/process-rejection' => $guideController->processRejection(),
     // Bookings management
     'admin/bookings' => $bookingController->index(),
     'admin/bookings/create' => $bookingController->create(),

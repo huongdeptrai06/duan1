@@ -58,14 +58,19 @@ $categories = $categories ?? [];
                             <label for="tourPrice" class="form-label fw-semibold">
                                 <i class="bi bi-currency-dollar me-1 text-primary"></i>Giá (VNĐ)
                             </label>
-                            <input type="number"
-                                   class="form-control form-control-lg"
-                                   id="tourPrice"
-                                   name="price"
-                                   value="<?= htmlspecialchars($tour['price'] ?? '') ?>"
-                                   placeholder="Ví dụ: 5000000"
-                                   min="0"
-                                   step="1000">
+                            <div class="input-group input-group-lg">
+                                <input type="text"
+                                       class="form-control form-control-lg"
+                                       id="tourPrice"
+                                       name="price"
+                                       value="<?= isset($tour['price']) && $tour['price'] ? number_format((float)$tour['price'], 0, '', '') : '' ?>"
+                                       placeholder="Ví dụ: 5000000"
+                                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                <span class="input-group-text bg-light">₫</span>
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Nhập số tiền không có dấu phẩy hoặc dấu chấm (ví dụ: 5000000)
+                            </small>
                         </div>
 
                         <div class="col-md-6">

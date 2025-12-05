@@ -186,11 +186,11 @@ function displayValue(?string $value, string $fallback = 'Chưa cập nhật'): 
 </div>
 
 
-<div class="mt-3">
-    <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-outline-secondary">
+<div class="mt-3 d-flex gap-2 justify-content-end">
+    <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-light">
         <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
     </a>
-    <a href="<?= BASE_URL . 'admin-guide-edit?id=' . urlencode($guide['id'] ?? '') ?>" class="btn btn-primary ms-2">
+    <a href="<?= BASE_URL . 'admin-guide-edit?id=' . urlencode($guide['id'] ?? '') ?>" class="btn btn-primary">
         <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
     </a>
 </div>
@@ -199,9 +199,11 @@ function displayValue(?string $value, string $fallback = 'Chưa cập nhật'): 
         <i class="bi bi-exclamation-triangle me-2"></i>
         Không tìm thấy thông tin hướng dẫn viên.
     </div>
-    <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
-    </a>
+    <div class="d-flex justify-content-end">
+        <a href="<?= BASE_URL ?>admin-guide-list" class="btn btn-light">
+            <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+        </a>
+    </div>
 <?php endif; ?>
 <?php
 $content = ob_get_clean();

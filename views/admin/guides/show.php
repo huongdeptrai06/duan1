@@ -18,9 +18,9 @@ ob_start();
                 <p><strong>Chứng chỉ:</strong><br><?= nl2br(htmlspecialchars($guide['certificates'] ?? '')) ?></p>
                 <p><strong>Đánh giá:</strong> <?= htmlspecialchars($guide['rating'] ?? '') ?></p>
                 <p><strong>Sức khoẻ:</strong> <?= htmlspecialchars($guide['health_status'] ?? '') ?></p>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="<?= BASE_URL ?>admin/guides" class="btn btn-light">Quay lại</a>
                     <a href="<?= BASE_URL ?>admin/guides/edit&id=<?= $guide['id'] ?>" class="btn btn-primary">Chỉnh sửa</a>
-                    <a href="<?= BASE_URL ?>admin/guides" class="btn btn-secondary">Quay lại</a>
                 </div>
             </div>
         </div>
