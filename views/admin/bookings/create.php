@@ -52,6 +52,28 @@ $formData = $formData ?? [];
                     </div>
 
                         <div class="col-md-6">
+                            <label for="representative_customer_id" class="form-label fw-semibold">
+                                <i class="bi bi-person-check me-1 text-primary"></i>Người đại diện <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-lg" id="representative_customer_id" name="representative_customer_id" required>
+                                <option value="">-- Chọn người đại diện --</option>
+                                <?php if (!empty($customers)): ?>
+                                    <?php foreach ($customers as $customer): ?>
+                                        <option value="<?= $customer['id'] ?>" <?= (isset($formData['representative_customer_id']) && $formData['representative_customer_id'] == $customer['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($customer['name']) ?> 
+                                            <?php if (!empty($customer['phone'])): ?>
+                                                - <?= htmlspecialchars($customer['phone']) ?>
+                                            <?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Chọn từ danh sách khách hàng có sẵn
+                            </small>
+                        </div>
+
+                        <div class="col-md-6">
                             <label for="assigned_guide_id" class="form-label fw-semibold">
                                 <i class="bi bi-person-badge me-1 text-primary"></i>Hướng dẫn viên
                             </label>
@@ -110,38 +132,6 @@ $formData = $formData ?? [];
                         </div>
                     </div>
 
-                    <!-- Phần quản lý khách hàng -->
-                    <div class="row g-3 mt-3">
-                        <div class="col-12">
-                            <div class="card border-primary">
-                                <div class="card-header bg-light">
-                                    <h5 class="card-title mb-0 d-flex align-items-center justify-content-between">
-                                        <span>
-                                            <i class="bi bi-people me-2 text-primary"></i>Danh sách khách hàng
-                                        </span>
-                                        <div>
-                                            <button type="button" class="btn btn-sm btn-success" onclick="addCustomerRow()">
-                                                <i class="bi bi-plus-circle me-1"></i>Thêm khách hàng
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('excelFile').click()">
-                                                <i class="bi bi-file-earmark-excel me-1"></i>Import từ Excel
-                                            </button>
-                                            <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
-                                        </div>
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div id="customersContainer">
-                                        <!-- Danh sách khách hàng sẽ được thêm vào đây bằng JavaScript -->
-                                    </div>
-                                    <div id="noCustomersMessage" class="text-muted text-center py-3">
-                                        <i class="bi bi-info-circle me-1"></i>Chưa có khách hàng nào. Vui lòng thêm khách hàng hoặc import từ Excel.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
                         <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary btn-lg">
                             <i class="bi bi-arrow-left me-1"></i>Quay lại
@@ -155,103 +145,6 @@ $formData = $formData ?? [];
         </div>
     </div>
 </div>
-<script>
-let customerIndex = 0;
-
-function addCustomerRow(customer = null) {
-    const container = document.getElementById('customersContainer');
-    const noMessage = document.getElementById('noCustomersMessage');
-    
-    if (noMessage) {
-        noMessage.style.display = 'none';
-    }
-    
-    const row = document.createElement('div');
-    row.className = 'row g-2 mb-2 customer-row';
-    row.dataset.index = customerIndex;
-    
-    row.innerHTML = `
-        <div class="col-md-3">
-            <input type="text" class="form-control" name="customers[${customerIndex}][name]" 
-                   placeholder="Tên khách hàng *" value="${customer?.name || ''}" required>
-        </div>
-        <div class="col-md-2">
-            <input type="tel" class="form-control" name="customers[${customerIndex}][phone]" 
-                   placeholder="Số điện thoại" value="${customer?.phone || ''}">
-        </div>
-        <div class="col-md-2">
-            <select class="form-select" name="customers[${customerIndex}][gender]">
-                <option value="">-- Giới tính --</option>
-                <option value="male" ${customer?.gender === 'male' ? 'selected' : ''}>Nam</option>
-                <option value="female" ${customer?.gender === 'female' ? 'selected' : ''}>Nữ</option>
-                <option value="other" ${customer?.gender === 'other' ? 'selected' : ''}>Khác</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <input type="email" class="form-control" name="customers[${customerIndex}][email]" 
-                   placeholder="Email" value="${customer?.email || ''}">
-        </div>
-        <div class="col-md-2">
-            <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeCustomerRow(this)">
-                <i class="bi bi-trash me-1"></i>Xóa
-            </button>
-        </div>
-    `;
-    
-    container.appendChild(row);
-    customerIndex++;
-}
-
-function removeCustomerRow(button) {
-    const row = button.closest('.customer-row');
-    row.remove();
-    
-    const container = document.getElementById('customersContainer');
-    if (container.children.length === 0) {
-        const noMessage = document.getElementById('noCustomersMessage');
-        if (noMessage) {
-            noMessage.style.display = 'block';
-        }
-    }
-}
-
-function handleExcelImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append('excel_file', file);
-    
-    fetch('<?= BASE_URL ?>admin/bookings/import-customers', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Xóa tất cả khách hàng hiện tại
-            document.getElementById('customersContainer').innerHTML = '';
-            customerIndex = 0;
-            
-            // Thêm từng khách hàng từ Excel
-            data.customers.forEach(customer => {
-                addCustomerRow(customer);
-            });
-            
-            alert(`Đã import thành công ${data.customers.length} khách hàng từ file Excel.`);
-        } else {
-            alert('Lỗi: ' + (data.message || 'Không thể đọc file Excel.'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Lỗi khi import file Excel. Vui lòng thử lại.');
-    });
-    
-    // Reset input để có thể chọn lại file cùng tên
-    event.target.value = '';
-}
-</script>
 
 <?php
 $content = ob_get_clean();

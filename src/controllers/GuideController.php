@@ -1258,4 +1258,225 @@ class GuideController
         }
         exit;
     }
+
+    // Điểm danh khách hàng
+    public function attendance(): void
+    {
+        requireGuide();
+        
+        $pdo = getDB();
+        $errors = [];
+        $bookings = [];
+        $currentUser = getCurrentUser();
+        
+        if (!$pdo) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
+        } else {
+            try {
+                // Lấy guide_id
+                $guideId = null;
+                $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+                
+                if ($guidesTableExists) {
+                    $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                    $hasUserId = $checkStmt->fetch();
+                    
+                    if ($hasUserId) {
+                        $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                        $guideStmt->execute(['user_id' => $currentUser->id]);
+                        $guide = $guideStmt->fetch();
+                        $guideId = $guide ? $guide['id'] : $currentUser->id;
+                    } else {
+                        $guideId = $currentUser->id;
+                    }
+                } else {
+                    $guideId = $currentUser->id;
+                }
+                
+                // Lấy danh sách booking đang hoạt động của guide
+                $bookingStmt = $pdo->prepare('
+                    SELECT b.id, b.start_date, b.end_date, t.name as tour_name,
+                           (SELECT COUNT(*) FROM booking_customers WHERE booking_id = b.id) as total_customers
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    WHERE b.assigned_guide_id = :guide_id
+                    AND b.start_date >= CURDATE()
+                    ORDER BY b.start_date ASC
+                ');
+                $bookingStmt->execute(['guide_id' => $guideId]);
+                $bookings = $bookingStmt->fetchAll();
+                
+            } catch (PDOException $e) {
+                error_log('Attendance list failed: ' . $e->getMessage());
+                $errors[] = 'Không thể tải danh sách tour.';
+            }
+        }
+        
+        view('guides.attendance', [
+            'title' => 'Điểm danh khách hàng',
+            'bookings' => $bookings,
+            'errors' => $errors,
+        ]);
+    }
+
+    // Xem danh sách khách hàng và điểm danh
+    public function attendanceDetail(): void
+    {
+        requireGuide();
+        
+        $bookingId = (int)($_GET['booking_id'] ?? 0);
+        if ($bookingId <= 0) {
+            header('Location: ' . BASE_URL . 'guides/attendance');
+            exit;
+        }
+        
+        $pdo = getDB();
+        $errors = [];
+        $booking = null;
+        $customers = [];
+        $currentUser = getCurrentUser();
+        
+        if (!$pdo) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
+        } else {
+            try {
+                // Kiểm tra quyền truy cập
+                $guideId = null;
+                $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+                
+                if ($guidesTableExists) {
+                    $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                    $hasUserId = $checkStmt->fetch();
+                    
+                    if ($hasUserId) {
+                        $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                        $guideStmt->execute(['user_id' => $currentUser->id]);
+                        $guide = $guideStmt->fetch();
+                        $guideId = $guide ? $guide['id'] : $currentUser->id;
+                    } else {
+                        $guideId = $currentUser->id;
+                    }
+                } else {
+                    $guideId = $currentUser->id;
+                }
+                
+                // Lấy thông tin booking
+                $bookingStmt = $pdo->prepare('
+                    SELECT b.*, t.name as tour_name, t.description as tour_description
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    WHERE b.id = :id AND b.assigned_guide_id = :guide_id
+                ');
+                $bookingStmt->execute(['id' => $bookingId, 'guide_id' => $guideId]);
+                $booking = $bookingStmt->fetch();
+                
+                if (!$booking) {
+                    header('Location: ' . BASE_URL . 'guides/attendance');
+                    exit;
+                }
+                
+                // Đảm bảo cột attendance_status tồn tại
+                try {
+                    $pdo->exec("ALTER TABLE booking_customers ADD COLUMN IF NOT EXISTS attendance_status ENUM('present', 'absent', 'pending') DEFAULT 'pending'");
+                } catch (PDOException $e) {
+                    // Cột đã tồn tại hoặc lỗi khác
+                }
+                
+                // Lấy danh sách khách hàng
+                $customerStmt = $pdo->prepare('
+                    SELECT * FROM booking_customers 
+                    WHERE booking_id = :booking_id 
+                    ORDER BY id ASC
+                ');
+                $customerStmt->execute(['booking_id' => $bookingId]);
+                $customers = $customerStmt->fetchAll();
+                
+            } catch (PDOException $e) {
+                error_log('Attendance detail failed: ' . $e->getMessage());
+                $errors[] = 'Không thể tải danh sách khách hàng.';
+            }
+        }
+        
+        view('guides.attendance_detail', [
+            'title' => 'Điểm danh - ' . ($booking['tour_name'] ?? 'Tour'),
+            'booking' => $booking,
+            'customers' => $customers,
+            'errors' => $errors,
+        ]);
+    }
+
+    // Lưu điểm danh
+    public function saveAttendance(): void
+    {
+        requireGuide();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'guides/attendance');
+            exit;
+        }
+        
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $attendance = $_POST['attendance'] ?? [];
+        
+        if ($bookingId <= 0) {
+            header('Location: ' . BASE_URL . 'guides/attendance');
+            exit;
+        }
+        
+        $pdo = getDB();
+        $currentUser = getCurrentUser();
+        
+        if (!$pdo) {
+            header('Location: ' . BASE_URL . 'guides/attendance&error=' . urlencode('Không thể kết nối database.'));
+            exit;
+        }
+        
+        try {
+            // Kiểm tra quyền
+            $guideId = null;
+            $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+            
+            if ($guidesTableExists) {
+                $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                $hasUserId = $checkStmt->fetch();
+                
+                if ($hasUserId) {
+                    $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                    $guideStmt->execute(['user_id' => $currentUser->id]);
+                    $guide = $guideStmt->fetch();
+                    $guideId = $guide ? $guide['id'] : $currentUser->id;
+                } else {
+                    $guideId = $currentUser->id;
+                }
+            } else {
+                $guideId = $currentUser->id;
+            }
+            
+            $checkBooking = $pdo->prepare('SELECT id FROM bookings WHERE id = :id AND assigned_guide_id = :guide_id');
+            $checkBooking->execute(['id' => $bookingId, 'guide_id' => $guideId]);
+            if (!$checkBooking->fetch()) {
+                header('Location: ' . BASE_URL . 'guides/attendance&error=' . urlencode('Không có quyền truy cập.'));
+                exit;
+            }
+            
+            // Cập nhật điểm danh
+            $updateStmt = $pdo->prepare('UPDATE booking_customers SET attendance_status = :status WHERE id = :id AND booking_id = :booking_id');
+            
+            foreach ($attendance as $customerId => $status) {
+                if (in_array($status, ['present', 'absent'])) {
+                    $updateStmt->execute([
+                        'status' => $status,
+                        'id' => (int)$customerId,
+                        'booking_id' => $bookingId,
+                    ]);
+                }
+            }
+            
+            header('Location: ' . BASE_URL . 'guides/attendance-detail&booking_id=' . $bookingId . '&success=' . urlencode('Đã lưu điểm danh thành công.'));
+        } catch (PDOException $e) {
+            error_log('Save attendance failed: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . 'guides/attendance-detail&booking_id=' . $bookingId . '&error=' . urlencode('Không thể lưu điểm danh.'));
+        }
+        exit;
+    }
 }

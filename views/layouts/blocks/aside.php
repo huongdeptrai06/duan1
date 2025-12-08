@@ -41,6 +41,12 @@
             <p>Danh sách tour của tôi</p>
           </a>
         </li>
+        <li class="nav-item">
+          <a href="<?= BASE_URL . 'guides/attendance' ?>" class="nav-link">
+            <i class="nav-icon bi bi-check2-square"></i>
+            <p>Điểm danh khách hàng</p>
+          </a>
+        </li>
         <?php elseif (isAdmin()): ?>
         <li class="nav-item">
           <a href="#" class="nav-link">

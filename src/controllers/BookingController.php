@@ -353,6 +353,7 @@ class BookingController
         $tours = [];
         $guides = [];
         $statuses = [];
+        $customers = [];
 
         // Đảm bảo bảng booking_customers tồn tại
         if ($pdo) {
@@ -362,9 +363,18 @@ class BookingController
                 // Lấy danh sách tours đang hoạt động
                 $stmt = $pdo->query('SELECT id, name FROM tours WHERE status = 1 ORDER BY name');
                 $tours = $stmt->fetchAll();
+                
+                // Lấy danh sách tất cả khách hàng (distinct từ booking_customers)
+                $custStmt = $pdo->query('
+                    SELECT DISTINCT id, name, phone, email
+                    FROM booking_customers 
+                    ORDER BY name ASC
+                ');
+                $customers = $custStmt->fetchAll();
             } catch (PDOException $e) {
-                error_log('Fetch tours failed: ' . $e->getMessage());
+                error_log('Fetch tours/customers failed: ' . $e->getMessage());
                 $tours = [];
+                $customers = [];
             }
         }
 
@@ -377,6 +387,7 @@ class BookingController
             'tours' => $tours,
             'guides' => $guides,
             'statuses' => $statuses,
+            'customers' => $customers,
         ]);
     }
 
@@ -400,6 +411,7 @@ class BookingController
         }
 
         $tour_id = !empty($_POST['tour_id']) ? (int)$_POST['tour_id'] : null;
+        $representative_customer_id = !empty($_POST['representative_customer_id']) ? (int)$_POST['representative_customer_id'] : null;
         $assigned_guide_id = !empty($_POST['assigned_guide_id']) ? (int)$_POST['assigned_guide_id'] : null;
         $status = !empty($_POST['status']) ? (int)$_POST['status'] : null;
         $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
@@ -447,6 +459,10 @@ class BookingController
         // Validation
         if (!$tour_id) {
             $errors[] = 'Vui lòng chọn tour.';
+        }
+        
+        if (!$representative_customer_id) {
+            $errors[] = 'Vui lòng chọn người đại diện cho tour.';
         }
 
         if (!$start_date) {
@@ -792,26 +808,30 @@ class BookingController
                 throw new Exception('Không thể lấy ID của booking vừa tạo.');
             }
 
-            // Lưu danh sách khách hàng (bảng đã được đảm bảo tồn tại trước transaction)
-            if (isset($_POST['customers']) && is_array($_POST['customers'])) {
+            // Lưu người đại diện vào booking_customers (copy từ khách hàng được chọn)
+            if ($representative_customer_id) {
                 try {
-                    $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
-                        (booking_id, name, phone, gender, email) 
-                        VALUES (:booking_id, :name, :phone, :gender, :email)');
+                    // Lấy thông tin khách hàng đại diện
+                    $repStmt = $pdo->prepare('SELECT * FROM booking_customers WHERE id = :id LIMIT 1');
+                    $repStmt->execute(['id' => $representative_customer_id]);
+                    $representative = $repStmt->fetch();
                     
-                    foreach ($_POST['customers'] as $customer) {
-                        if (!empty($customer['name'])) {
-                            $customerStmt->execute([
-                                'booking_id' => $bookingId,
-                                'name' => trim($customer['name'] ?? ''),
-                                'phone' => !empty($customer['phone']) ? trim($customer['phone']) : null,
-                                'gender' => !empty($customer['gender']) ? $customer['gender'] : null,
-                                'email' => !empty($customer['email']) ? trim($customer['email']) : null,
-                            ]);
-                        }
+                    if ($representative) {
+                        // Copy thông tin người đại diện vào booking mới
+                        $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
+                            (booking_id, name, phone, gender, email) 
+                            VALUES (:booking_id, :name, :phone, :gender, :email)');
+                        
+                        $customerStmt->execute([
+                            'booking_id' => $bookingId,
+                            'name' => $representative['name'],
+                            'phone' => $representative['phone'] ?? null,
+                            'gender' => $representative['gender'] ?? null,
+                            'email' => $representative['email'] ?? null,
+                        ]);
                     }
                 } catch (PDOException $customerError) {
-                    error_log('Failed to save customers (non-critical): ' . $customerError->getMessage());
+                    error_log('Failed to save representative customer (non-critical): ' . $customerError->getMessage());
                     // Không rollback vì booking đã tạo thành công
                 }
             }
@@ -1222,6 +1242,10 @@ class BookingController
         if (!$tour_id) {
             $errors[] = 'Vui lòng chọn tour.';
         }
+        
+        if (!$representative_customer_id) {
+            $errors[] = 'Vui lòng chọn người đại diện cho tour.';
+        }
 
         if (!$start_date) {
             $errors[] = 'Vui lòng chọn ngày khởi hành.';
@@ -1609,6 +1633,8 @@ class BookingController
             $this->ensureBookingCustomersTable($pdo);
         }
 
+        $bookings = [];
+        
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
@@ -1637,6 +1663,15 @@ class BookingController
                     ORDER BY b.created_at DESC, bc.id ASC
                 ');
                 $customers = $stmt->fetchAll();
+                
+                // Lấy danh sách tất cả bookings để hiển thị trong dropdown
+                $bookingStmt = $pdo->query('
+                    SELECT b.id, b.start_date, t.name as tour_name
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    ORDER BY b.created_at DESC
+                ');
+                $bookings = $bookingStmt->fetchAll();
             } catch (PDOException $e) {
                 error_log('Customer list failed: ' . $e->getMessage());
                 $errors[] = 'Không thể tải danh sách khách hàng.';
@@ -1646,6 +1681,7 @@ class BookingController
         view('admin.bookings.customers', [
             'title' => 'Danh sách khách hàng',
             'customers' => $customers,
+            'bookings' => $bookings,
             'errors' => $errors,
         ]);
     }
@@ -1829,9 +1865,12 @@ class BookingController
         try {
             // Xử lý file Excel (.xlsx, .xls)
             if (in_array($fileExtension, ['xlsx', 'xls'])) {
-                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+                // Require autoload TRƯỚC KHI check class
+                if (file_exists(BASE_PATH . '/vendor/autoload.php')) {
                     require_once BASE_PATH . '/vendor/autoload.php';
-                    
+                }
+                
+                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
                     $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $rows = $worksheet->toArray();
@@ -2037,7 +2076,6 @@ class BookingController
         exit;
     }
 
-    // Thêm phản hồi/đánh giá/sự cố (lưu vào diary)
     public function addFeedback(): void
     {
         requireGuideOrAdmin();
@@ -2049,7 +2087,7 @@ class BookingController
 
         $id = (int)($_POST['id'] ?? 0);
         $feedback = trim($_POST['feedback'] ?? '');
-        $feedbackType = $_POST['feedback_type'] ?? 'feedback'; // feedback, review, incident
+        $feedbackType = $_POST['feedback_type'] ?? 'feedback'; 
 
         if ($id <= 0 || !$feedback) {
             header('Location: ' . BASE_URL . 'admin/bookings/show&id=' . $id . '&error=' . urlencode('Vui lòng nhập nội dung phản hồi.'));
@@ -2063,7 +2101,6 @@ class BookingController
         }
 
         try {
-            // Lấy diary cũ và thêm mới
             $stmt = $pdo->prepare('SELECT diary FROM bookings WHERE id = :id LIMIT 1');
             $stmt->execute(['id' => $id]);
             $booking = $stmt->fetch();
@@ -2157,10 +2194,12 @@ class BookingController
         try {
             // Xử lý file Excel (.xlsx, .xls)
             if (in_array($fileExtension, ['xlsx', 'xls'])) {
-                // Kiểm tra xem có thư viện PhpSpreadsheet không
-                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+                // Require autoload TRƯỚC KHI check class
+                if (file_exists(BASE_PATH . '/vendor/autoload.php')) {
                     require_once BASE_PATH . '/vendor/autoload.php';
-                    
+                }
+                
+                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
                     $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $rows = $worksheet->toArray();

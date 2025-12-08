@@ -1,0 +1,14 @@
+{
+    "name": "duan-1/tour-management",
+    "description": "Hệ thống quản lý tour du lịch",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "phpoffice/phpspreadsheet": "^5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

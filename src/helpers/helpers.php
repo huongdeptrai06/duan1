@@ -149,3 +149,14 @@ function requireGuideOrAdmin()
         exit;
     }
 }
+
+// Yêu cầu quyền hướng dẫn viên
+function requireGuide()
+{
+    requireLogin();
+    
+    if (!isGuide()) {
+        header('Location: ' . BASE_URL);
+        exit;
+    }
+}

@@ -47,68 +47,19 @@ ob_start();
                 <?php endif; ?>
 
                 <?php if ($booking): ?>
-                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <div class="mb-3">
                         <h5 class="text-primary mb-0">
                             <i class="bi bi-list-ul me-2"></i>
                             Danh sách thành viên (<?= count($customers) ?> người)
                         </h5>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-success" onclick="showAddCustomerForm()">
-                                <i class="bi bi-plus-circle me-1"></i>Thêm khách hàng
-                            </button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('excelFileCustomer').click()">
-                                <i class="bi bi-file-earmark-excel me-1"></i>Import từ Excel
-                            </button>
-                            <input type="file" id="excelFileCustomer" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelImportCustomer(event)">
-                        </div>
                     </div>
 
-                    <!-- Form thêm khách hàng -->
-                    <div id="addCustomerForm" class="card border-success mb-3" style="display:none;">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">
-                                <i class="bi bi-person-plus me-2"></i>Thêm khách hàng mới
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <form id="customerForm" onsubmit="addCustomerManually(event)">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Tên khách hàng <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" name="name" required>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Số điện thoại</label>
-                                        <input type="tel" class="form-control" name="phone">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Giới tính</label>
-                                        <select class="form-select" name="gender">
-                                            <option value="">-- Chọn --</option>
-                                            <option value="male">Nam</option>
-                                            <option value="female">Nữ</option>
-                                            <option value="other">Khác</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" class="form-control" name="email">
-                                    </div>
-                                    <div class="col-md-2 d-flex align-items-end">
-                                        <button type="submit" class="btn btn-success w-100">
-                                            <i class="bi bi-check me-1"></i>Thêm
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
                 <?php endif; ?>
 
                 <?php if (empty($customers)): ?>
                     <div class="alert alert-info mb-0">
                         <i class="bi bi-info-circle me-2"></i>
-                        Booking này chưa có khách hàng nào. Vui lòng thêm khách hàng hoặc import từ Excel.
+                        Booking này chưa có khách hàng nào.
                     </div>
                 <?php else: ?>
                     <div class="table-responsive">
@@ -202,65 +153,6 @@ view('layouts.AdminLayout', [
 
 <script>
 const bookingId = <?= $booking['id'] ?? 0 ?>;
-
-function showAddCustomerForm() {
-    const form = document.getElementById('addCustomerForm');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
-function addCustomerManually(event) {
-    event.preventDefault();
-    
-    const formData = new FormData(event.target);
-    formData.append('booking_id', bookingId);
-    
-    fetch('<?= BASE_URL ?>admin/bookings/add-customer', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Thêm khách hàng thành công!');
-            location.reload();
-        } else {
-            alert('Lỗi: ' + (data.message || 'Không thể thêm khách hàng.'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Lỗi khi thêm khách hàng. Vui lòng thử lại.');
-    });
-}
-
-function handleExcelImportCustomer(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append('excel_file', file);
-    formData.append('booking_id', bookingId);
-    
-    fetch('<?= BASE_URL ?>admin/bookings/import-customers-to-booking', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`Đã import thành công ${data.count || 0} khách hàng từ file Excel.`);
-            location.reload();
-        } else {
-            alert('Lỗi: ' + (data.message || 'Không thể đọc file Excel.'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Lỗi khi import file Excel. Vui lòng thử lại.');
-    });
-    
-    event.target.value = '';
-}
 
 function deleteCustomer(customerId, customerName) {
     if (!confirm('Bạn có chắc chắn muốn xóa khách hàng "' + customerName + '"?')) {

@@ -13,9 +13,15 @@ ob_start();
                     </h3>
                 </div>
                     <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" onclick="showAddCustomerModal()">
+                            <i class="bi bi-plus-circle me-1"></i> Thêm khách hàng
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="showImportExcelModal()">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Import từ Excel
+                        </button>
                         <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i> Quay lại
-                    </a>
+                            <i class="bi bi-arrow-left me-1"></i> Quay lại
+                        </a>
                     </div>
                 </div>
             </div>
@@ -86,9 +92,16 @@ ob_start();
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
-                                            <a href="<?= BASE_URL ?>admin/bookings/customer-detail&booking_id=<?= $customer['booking_id'] ?>" class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-eye me-1"></i> Chi tiết
-                                            </a>
+                                            <div class="d-flex gap-2 justify-content-end">
+                                                <a href="<?= BASE_URL ?>admin/bookings/customer-detail&booking_id=<?= $customer['booking_id'] ?>" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye me-1"></i> Chi tiết
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteCustomerFromList(<?= $customer['id'] ?>, <?= $customer['booking_id'] ?>, '<?= htmlspecialchars($customer['name'] ?? '', ENT_QUOTES) ?>')">
+                                                    <i class="bi bi-trash me-1"></i> Xóa
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -100,6 +113,214 @@ ob_start();
         </div>
     </div>
 </div>
+
+<!-- Modal thêm khách hàng -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-plus me-2"></i>Thêm khách hàng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addCustomerForm" onsubmit="submitAddCustomer(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Chọn Booking <span class="text-danger">*</span></label>
+                        <select class="form-select" name="booking_id" id="bookingSelect" required>
+                            <option value="">-- Chọn booking --</option>
+                            <?php if (!empty($bookings)): ?>
+                                <?php foreach ($bookings as $booking): ?>
+                                    <option value="<?= $booking['id'] ?>">
+                                        #<?= $booking['id'] ?> - <?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?>
+                                        <?php if (!empty($booking['start_date'])): ?>
+                                            (<?= date('d/m/Y', strtotime($booking['start_date'])) ?>)
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tên khách hàng <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" name="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Giới tính</label>
+                        <select class="form-select" name="gender">
+                            <option value="">-- Chọn --</option>
+                            <option value="male">Nam</option>
+                            <option value="female">Nữ</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check me-1"></i>Thêm khách hàng
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="importExcelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Import khách hàng từ Excel
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importExcelForm" onsubmit="submitImportExcel(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Chọn Booking <span class="text-danger">*</span></label>
+                        <select class="form-select" name="booking_id" required>
+                            <option value="">-- Chọn booking --</option>
+                            <?php if (!empty($bookings)): ?>
+                                <?php foreach ($bookings as $booking): ?>
+                                    <option value="<?= $booking['id'] ?>">
+                                        #<?= $booking['id'] ?> - <?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?>
+                                        <?php if (!empty($booking['start_date'])): ?>
+                                            (<?= date('d/m/Y', strtotime($booking['start_date'])) ?>)
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Chọn file Excel <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                        <div class="form-text">
+                            Định dạng: .xlsx, .xls hoặc .csv<br>
+                            Cột: Tên | Số điện thoại | Giới tính | Email
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="bi bi-upload me-1"></i>Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAddCustomerModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
+    modal.show();
+}
+
+function showImportExcelModal() {
+    const modal = new bootstrap.Modal(document.getElementById('importExcelModal'));
+    modal.show();
+}
+
+function submitAddCustomer(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    fetch('<?= BASE_URL ?>admin/bookings/add-customer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Lỗi: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra khi thêm khách hàng');
+    });
+}
+
+function submitImportExcel(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang import...';
+    
+    fetch('<?= BASE_URL ?>admin/bookings/import-customers-to-booking', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Lỗi: ' + data.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i>Import';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra khi import');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i>Import';
+    });
+}
+
+function deleteCustomerFromList(customerId, bookingId, customerName) {
+    if (!confirm('Bạn có chắc chắn muốn xóa khách hàng "' + customerName + '" khỏi booking này?')) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('customer_id', customerId);
+    formData.append('booking_id', bookingId);
+    
+    fetch('<?= BASE_URL ?>admin/bookings/delete-customer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Xóa khách hàng thành công!');
+            location.reload();
+        } else {
+            alert('Lỗi: ' + (data.message || 'Không thể xóa khách hàng.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra khi xóa khách hàng. Vui lòng thử lại.');
+    });
+}
+</script>
+
 <?php
 $content = ob_get_clean();
 
