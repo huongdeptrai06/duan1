@@ -139,23 +139,23 @@ function requireAdmin()
     }
 }
 
-// Yêu cầu quyền hướng dẫn viên hoặc admin
-function requireGuideOrAdmin()
-{
-    requireLogin();
-    
-    if (!isGuide() && !isAdmin()) {
-        header('Location: ' . BASE_URL);
-        exit;
-    }
-}
-
 // Yêu cầu quyền hướng dẫn viên
 function requireGuide()
 {
     requireLogin();
     
     if (!isGuide()) {
+        header('Location: ' . BASE_URL);
+        exit;
+    }
+}
+
+// Yêu cầu quyền hướng dẫn viên hoặc admin
+function requireGuideOrAdmin()
+{
+    requireLogin();
+    
+    if (!isGuide() && !isAdmin()) {
         header('Location: ' . BASE_URL);
         exit;
     }
