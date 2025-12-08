@@ -22,6 +22,7 @@ require_once __DIR__ . '/src/controllers/CategoryController.php';
 require_once __DIR__ . '/src/controllers/GuideController.php';
 require_once __DIR__ . '/src/controllers/BookingController.php';
 require_once __DIR__ . '/src/controllers/TourController.php';
+require_once __DIR__ . '/src/controllers/ReportController.php';
 
 // Khởi tạo các controller
 $homeController = new HomeController();
@@ -30,6 +31,7 @@ $categoryController = new CategoryController();
 $guideController = new GuideController();
 $bookingController = new BookingController();
 $tourController = new TourController();
+$reportController = new ReportController();
 
 // Xác định route dựa trên tham số act (mặc định là trang chủ '/')
 $act = $_GET['act'] ?? '/';
@@ -66,11 +68,22 @@ match ($act) {
     // Guides management
     'admin/guides' => $guideController->index(),
     'admin/guides/create' => $guideController->create(),
+    // Guide dashboard (for guides only)
+    'guides/dashboard' => $guideController->dashboard(),
+    'guides/request-leave' => $guideController->requestLeave(),
+    'guides/add-note' => $guideController->addNote(),
+    'guides/confirm-tour' => $guideController->confirmTour(),
+    'guides/reject-tour' => $guideController->rejectTour(),
     'admin/guides/store' => $guideController->store(),
     'admin/guides/edit' => $guideController->edit(),
     'admin/guides/update' => $guideController->update(),
     'admin/guides/delete' => $guideController->delete(),
     'admin/guides/show' => $guideController->show(),
+    'admin/guides/process-leave' => $guideController->processLeaveRequest(),
+    'admin/guides/requests' => $guideController->requests(),
+    'admin/guides/process-note' => $guideController->processNote(),
+    'admin/guides/process-confirmation' => $guideController->processConfirmation(),
+    'admin/guides/process-rejection' => $guideController->processRejection(),
     // Bookings management
     'admin/bookings' => $bookingController->index(),
     'admin/bookings/create' => $bookingController->create(),
@@ -83,11 +96,23 @@ match ($act) {
     'admin/bookings/assign-guide' => $bookingController->assignGuide(),
     'admin/bookings/schedule' => $bookingController->schedule(),
     'admin/bookings/customers' => $bookingController->customerList(),
+    'admin/bookings/customer-detail' => $bookingController->customerDetail(),
+    'admin/bookings/add-customer' => $bookingController->addCustomer(),
+    'admin/bookings/import-customers-to-booking' => $bookingController->importCustomersToBooking(),
+    'admin/bookings/delete-customer' => $bookingController->deleteCustomer(),
+    'admin/bookings/import-customers' => $bookingController->importCustomers(),
     'admin/bookings/add-note' => $bookingController->addNote(),
     'admin/bookings/add-feedback' => $bookingController->addFeedback(),
     // Tours management
     'admin/tours' => $tourController->index(),
+    'admin/tours/create' => $tourController->create(),
+    'admin/tours/store' => $tourController->store(),
     'admin/tours/show' => $tourController->show(),
+    'admin/tours/edit' => $tourController->edit(),
+    'admin/tours/update' => $tourController->update(),
+    'admin/tours/delete' => $tourController->delete(),
+    // Reports management
+    'admin/reports' => $reportController->index(),
     'logout' => $authController->logout(),
 
     // Đường dẫn không tồn tại

@@ -8,7 +8,7 @@ ob_start();
                 <h3 class="card-title mb-0">
                     <i class="bi bi-airplane-engines me-2"></i>Chi tiết tour #<?= $tour['id'] ?>
                 </h3>
-                <div>
+                <div class="d-flex justify-content-end">
                     <a href="<?= BASE_URL ?>admin/tours" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-left me-1"></i>Quay lại
                     </a>

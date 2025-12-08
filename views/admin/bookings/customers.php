@@ -4,18 +4,19 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header bg-white border-0 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+            <div class="card-header bg-white border-0">
+                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
                 <div>
-                    <h3 class="card-title mb-1">
+                    <h3 class="card-title mb-0">
                         <i class="bi bi-people me-2"></i>
                         Danh sách khách hàng
                     </h3>
-                    <small class="text-muted">Danh sách khách hàng đã đặt tour.</small>
                 </div>
-                <div class="d-flex gap-2">
-                    <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
+                    <div class="d-flex gap-2">
+                        <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Quay lại
                     </a>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -41,9 +42,11 @@ ob_start();
                                 <tr>
                                     <th>#</th>
                                     <th>Tên khách hàng</th>
+                                    <th>Giới tính</th>
+                                    <th>Số điện thoại</th>
                                     <th>Email</th>
-                                    <th>Tổng số booking</th>
-                                    <th>Booking gần nhất</th>
+                                    <th>Tour</th>
+                                    <th>Ngày booking</th>
                                     <th class="text-end">Thao tác</th>
                                 </tr>
                             </thead>
@@ -54,20 +57,37 @@ ob_start();
                                         <td>
                                             <strong><?= htmlspecialchars($customer['name'] ?? 'N/A') ?></strong>
                                         </td>
-                                        <td><?= htmlspecialchars($customer['email'] ?? 'N/A') ?></td>
                                         <td>
-                                            <span class="badge bg-primary"><?= $customer['total_bookings'] ?? 0 ?></span>
+                                            <?php 
+                                            $gender = $customer['gender'] ?? '';
+                                            $genderText = '';
+                                            if ($gender === 'male') {
+                                                $genderText = 'Nam';
+                                            } elseif ($gender === 'female') {
+                                                $genderText = 'Nữ';
+                                            } elseif ($gender === 'other') {
+                                                $genderText = 'Khác';
+                                            } else {
+                                                $genderText = '-';
+                                            }
+                                            ?>
+                                            <span class="badge bg-info"><?= $genderText ?></span>
+                                        </td>
+                                        <td><?= htmlspecialchars($customer['phone'] ?? '-') ?></td>
+                                        <td><?= htmlspecialchars($customer['email'] ?? '-') ?></td>
+                                        <td>
+                                            <small><?= htmlspecialchars($customer['tour_name'] ?? 'N/A') ?></small>
                                         </td>
                                         <td>
-                                            <?php if ($customer['last_booking_date']): ?>
-                                                <?= date('d/m/Y H:i', strtotime($customer['last_booking_date'])) ?>
+                                            <?php if ($customer['booking_date']): ?>
+                                                <?= date('d/m/Y H:i', strtotime($customer['booking_date'])) ?>
                                             <?php else: ?>
                                                 <span class="text-muted">-</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
-                                            <a href="<?= BASE_URL ?>admin/bookings?created_by=<?= $customer['id'] ?>" class="btn btn-sm btn-outline-info">
-                                                <i class="bi bi-calendar-check me-1"></i> Xem bookings
+                                            <a href="<?= BASE_URL ?>admin/bookings/customer-detail&booking_id=<?= $customer['booking_id'] ?>" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-eye me-1"></i> Chi tiết
                                             </a>
                                         </td>
                                     </tr>

@@ -4,14 +4,18 @@ ob_start();
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between">
+            <div class="card-header bg-white border-0 d-flex align-items-center">
                 <div>
                     <h3 class="card-title mb-0"><i class="bi bi-people-fill me-2"></i>Danh sách tài khoản</h3>
-                    <small class="text-muted">Quản trị viên có thể xem nhanh quyền và trạng thái của từng tài khoản.</small>
                 </div>
-                <a href="<?= BASE_URL ?>admin/guide/create" class="btn btn-primary">
-                    <i class="bi bi-person-plus me-1"></i> Cấp tài khoản HDV
-                </a>
+                <div class="d-flex gap-2 ms-auto">
+                    <a href="<?= BASE_URL ?>admin/guides/requests" class="btn btn-warning">
+                        <i class="bi bi-clipboard-check me-1"></i> Quản lý yêu cầu HDV
+                    </a>
+                    <a href="<?= BASE_URL ?>admin/guide/create" class="btn btn-primary">
+                        <i class="bi bi-person-plus me-1"></i> Cấp tài khoản HDV
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 <?php if (!empty($errors)): ?>
@@ -89,15 +93,3 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-
-
-
-
-
-
-
-
-
-
-
-

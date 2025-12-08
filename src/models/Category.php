@@ -24,15 +24,3 @@ class Category
         return $this->status === 1;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-

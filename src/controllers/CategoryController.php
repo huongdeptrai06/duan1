@@ -265,13 +265,3 @@ class CategoryController
 }
 
 
-
-
-
-
-
-
-
-
-
-

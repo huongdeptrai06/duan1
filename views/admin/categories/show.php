@@ -36,16 +36,16 @@ ob_start();
                     <dd class="col-sm-9"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($category['updated_at'] ?? 'now'))) ?></dd>
                 </dl>
             </div>
-            <div class="card-footer d-flex justify-content-between">
-                <a href="<?= BASE_URL ?>admin/categories" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>Quay lại
-                </a>
-                <form action="<?= BASE_URL ?>admin/categories/delete" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');">
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <form action="<?= BASE_URL ?>admin/categories/delete" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');" class="me-auto">
                     <input type="hidden" name="id" value="<?= $category['id'] ?>">
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash me-1"></i>Xóa danh mục
                     </button>
                 </form>
+                <a href="<?= BASE_URL ?>admin/categories" class="btn btn-light">
+                    <i class="bi bi-arrow-left me-1"></i>Quay lại
+                </a>
             </div>
         </div>
     </div>
@@ -64,15 +64,3 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-
-
-
-
-
-
-
-
-
-
-
-

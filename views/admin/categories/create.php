@@ -78,15 +78,3 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-
-
-
-
-
-
-
-
-
-
-
-

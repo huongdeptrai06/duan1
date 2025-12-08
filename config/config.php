@@ -5,7 +5,7 @@ if (!defined('BASE_PATH')) {
     define('BASE_PATH', dirname(__DIR__)); // Đường dẫn tuyệt đối tới thư mục gốc của dự án
 }
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/DUAN1-HIEUNV/'); // URL cơ bản của dự án(Lưu ý cấp độ trong htdocs hoặc www)
+    define('BASE_URL', '/DUAN1-HUONGTP/'); // URL cơ bản của dự án(Lưu ý cấp độ trong htdocs hoặc www)
 }
 
 // Cấu hình cơ bản cho kết nối CSDL

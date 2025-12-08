@@ -1,90 +1,63 @@
 <?php
-// Controller chịu trách nhiệm xử lý logic cho các trang cơ bản
+
 require_once BASE_PATH . '/src/helpers/database.php';
 
-class HomeController
+class ReportController
 {
-    // Trang welcome - hiển thị cho người chưa đăng nhập
-    // Nếu đã đăng nhập thì redirect về trang home
-    public function welcome(): void
+    // Trang báo cáo thống kê chính
+    public function index(): void
     {
-        // Nếu đã đăng nhập thì redirect về trang home
-        if (isLoggedIn()) {
-            header('Location: ' . BASE_URL . 'home');
-            exit;
-        }
+        requireAdmin();
 
-        // Hiển thị view welcome
-        view('welcome', [
-            'title' => 'Chào mừng - Website Quản Lý Tour',
-        ]);
-    }
-
-    // Trang home - chỉ dành cho người đã đăng nhập
-    // Nếu chưa đăng nhập thì redirect về trang welcome
-    public function home(): void
-    {
-        // Yêu cầu phải đăng nhập, nếu chưa thì redirect về welcome
-        if (!isLoggedIn()) {
-            header('Location: ' . BASE_URL . 'welcome');
-            exit;
-        }
-
-        // Lấy thông tin user hiện tại (đã đảm bảo đăng nhập ở trên)
-        $currentUser = getCurrentUser();
-
-        // Lấy thống kê nếu là admin
-        $stats = [];
+        $pdo = getDB();
         $errors = [];
-        
-        if (isAdmin()) {
-            $pdo = getDB();
+        $stats = [];
+
+        if ($pdo === null) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
+        } else {
+            // Thống kê tổng quan
+            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             
-            if ($pdo === null) {
-                $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
-            } else {
-                // Thống kê tổng quan
-                $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                
-                try {
-                    $totalToursResult = $pdo->query('SELECT COUNT(*) as count FROM tours WHERE status = 1')->fetch();
-                    $stats['total_tours'] = $totalToursResult['count'] ?? 0;
-                } catch (PDOException $e) {
-                    error_log('Get total tours failed: ' . $e->getMessage());
-                    $stats['total_tours'] = 0;
-                }
-                
-                try {
-                    $totalBookingsResult = $pdo->query('SELECT COUNT(*) as count FROM bookings')->fetch();
-                    $stats['total_bookings'] = $totalBookingsResult['count'] ?? 0;
-                } catch (PDOException $e) {
-                    error_log('Get total bookings failed: ' . $e->getMessage());
-                    $stats['total_bookings'] = 0;
-                }
-                
-                try {
-                    $totalCustomersResult = $pdo->query('SELECT COUNT(DISTINCT created_by) as count FROM bookings')->fetch();
-                    $stats['total_customers'] = $totalCustomersResult['count'] ?? 0;
-                } catch (PDOException $e) {
-                    error_log('Get total customers failed: ' . $e->getMessage());
-                    $stats['total_customers'] = 0;
-                }
-                
-                try {
-                    $totalGuidesResult = $pdo->query('SELECT COUNT(*) as count FROM users WHERE role = "huong_dan_vien" AND status = 1')->fetch();
-                    $stats['total_guides'] = $totalGuidesResult['count'] ?? 0;
-                } catch (PDOException $e) {
-                    error_log('Get total guides failed: ' . $e->getMessage());
-                    $stats['total_guides'] = 0;
-                }
-                
-                try {
-                    $totalCategoriesResult = $pdo->query('SELECT COUNT(*) as count FROM categories WHERE status = 1')->fetch();
-                    $stats['total_categories'] = $totalCategoriesResult['count'] ?? 0;
-                } catch (PDOException $e) {
-                    error_log('Get total categories failed: ' . $e->getMessage());
-                    $stats['total_categories'] = 0;
-                }
+            try {
+                $totalToursResult = $pdo->query('SELECT COUNT(*) as count FROM tours WHERE status = 1')->fetch();
+                $stats['total_tours'] = $totalToursResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total tours failed: ' . $e->getMessage());
+                $stats['total_tours'] = 0;
+            }
+            
+            try {
+                $totalBookingsResult = $pdo->query('SELECT COUNT(*) as count FROM bookings')->fetch();
+                $stats['total_bookings'] = $totalBookingsResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total bookings failed: ' . $e->getMessage());
+                $stats['total_bookings'] = 0;
+            }
+            
+            try {
+                $totalCustomersResult = $pdo->query('SELECT COUNT(DISTINCT created_by) as count FROM bookings')->fetch();
+                $stats['total_customers'] = $totalCustomersResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total customers failed: ' . $e->getMessage());
+                $stats['total_customers'] = 0;
+            }
+            
+            try {
+                $totalGuidesResult = $pdo->query('SELECT COUNT(*) as count FROM users WHERE role = "huong_dan_vien" AND status = 1')->fetch();
+                $stats['total_guides'] = $totalGuidesResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total guides failed: ' . $e->getMessage());
+                $stats['total_guides'] = 0;
+            }
+            
+            try {
+                $totalCategoriesResult = $pdo->query('SELECT COUNT(*) as count FROM categories WHERE status = 1')->fetch();
+                $stats['total_categories'] = $totalCategoriesResult['count'] ?? 0;
+            } catch (PDOException $e) {
+                error_log('Get total categories failed: ' . $e->getMessage());
+                $stats['total_categories'] = 0;
+            }
 
                 // Thống kê doanh thu
                 try {
@@ -357,25 +330,13 @@ class HomeController
                 $stats['avg_revenue_per_booking'] = ($stats['total_bookings'] ?? 0) > 0 
                     ? round(($stats['total_revenue'] ?? 0) / ($stats['total_bookings'] ?? 1), 0) 
                     : 0;
-            }
         }
 
-        // Hiển thị view home với dữ liệu title và user
-        view('home', [
-            'title' => 'Trang chủ - Website Quản Lý Tour',
-            'user' => $currentUser,
+        view('admin.reports.index', [
+            'title' => 'Báo cáo thống kê',
+            'pageTitle' => 'Báo cáo thống kê',
             'stats' => $stats,
             'errors' => $errors,
-        ]);
-    }
-
-    // Trang hiển thị khi route không tồn tại
-    public function notFound(): void
-    {
-        http_response_code(404);
-        // Hiển thị view not_found với dữ liệu title
-        view('not_found', [
-            'title' => 'Không tìm thấy trang',
         ]);
     }
 }

@@ -12,12 +12,12 @@
     </ul>
     <!--end::Start Navbar Links-->
     <!--begin::End Navbar Links-->
-    <ul class="navbar-nav ms-auto">
+    <ul class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
       <!--begin::Notifications Dropdown Menu-->
       <li class="nav-item dropdown">
-        <a class="nav-link" data-bs-toggle="dropdown" href="#">
+        <a class="nav-link position-relative" data-bs-toggle="dropdown" href="#">
           <i class="bi bi-bell-fill"></i>
-          <span class="navbar-badge badge text-bg-warning">15</span>
+          <span class="navbar-badge badge text-bg-warning position-absolute top-0 start-100 translate-middle">15</span>
         </a>
         <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
           <span class="dropdown-item dropdown-header">15 Thông báo</span>
@@ -43,7 +43,7 @@
       <!--end::Notifications Dropdown Menu-->
       <!--begin::Fullscreen Toggle-->
       <li class="nav-item">
-        <a class="nav-link" href="#" data-lte-toggle="fullscreen">
+        <a class="nav-link d-flex align-items-center" href="#" data-lte-toggle="fullscreen">
           <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
           <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none"></i>
         </a>
@@ -53,11 +53,12 @@
       <?php if (isLoggedIn()): ?>
         <?php $currentUser = getCurrentUser(); ?>
         <li class="nav-item dropdown user-menu">
-          <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+          <a href="#" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
             <img
               src="<?= asset('dist/assets/img/user2-160x160.jpg') ?>"
               class="user-image rounded-circle shadow"
               alt="User Image"
+              style="width: 32px; height: 32px; object-fit: cover;"
             />
             <span class="d-none d-md-inline"><?= $currentUser->name ?></span>
           </a>
