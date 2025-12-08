@@ -1,14 +1,13 @@
 <?php
 // Sử dụng layout và truyền nội dung vào
 ob_start();
-$stats = $stats ?? [];
 ?>
 
 <!--begin::Row-->
 <div class="row">
   <div class="col-12">
     <!-- Default box -->
-    <div class="card mb-4">
+    <div class="card">
       <div class="card-header">
         <h3 class="card-title">Chào mừng đến với hệ thống quản lý tour</h3>
         <div class="card-tools">
@@ -83,8 +82,10 @@ $stats = $stats ?? [];
 </div>
 <!--end::Row-->
 
-<?php if (isLoggedIn() && $user->isAdmin() && !empty($stats)): ?>
-<!-- Báo cáo thống kê -->
+<?php if (isAdmin() && !empty($stats)): ?>
+<?php 
+$stats = $stats ?? [];
+?>
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm mb-4">
@@ -215,6 +216,27 @@ $stats = $stats ?? [];
                     </div>
                 </div>
 
+                <!-- Doanh thu theo trạng thái -->
+                <?php if (isset($stats['pending_revenue']) && $stats['pending_revenue'] > 0): ?>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted mb-1">Doanh thu chờ xác nhận</h6>
+                                        <h4 class="text-warning mb-0"><?= number_format($stats['pending_revenue'] ?? 0, 0, ',', '.') ?> ₫</h4>
+                                    </div>
+                                    <div class="fs-2 text-warning opacity-50">
+                                        <i class="bi bi-clock-history"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Thống kê tỷ lệ -->
                 <?php if (isset($stats['avg_revenue_per_booking']) && $stats['avg_revenue_per_booking'] > 0): ?>
                 <div class="row g-3 mb-4">
@@ -288,6 +310,13 @@ $stats = $stats ?? [];
                                                 <td class="text-end fw-bold text-success py-3"><?= number_format($status['revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
                                             </tr>
                                             <?php endforeach; ?>
+                                            <?php if (count($stats['booking_by_status']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['booking_by_status']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -344,10 +373,376 @@ $stats = $stats ?? [];
                                         </div>
                                     </div>
                                     <?php endif; ?>
+                                    <?php 
+                                    $totalBookings = $stats['total_bookings'] ?? 0;
+                                    $completedBookings = 0;
+                                    foreach ($stats['booking_by_status'] ?? [] as $status) {
+                                        if (stripos($status['name'] ?? '', 'Hoàn thành') !== false || stripos($status['name'] ?? '', 'Hoàn tất') !== false) {
+                                            $completedBookings = $status['count'] ?? 0;
+                                            break;
+                                        }
+                                    }
+                                    $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100, 1) : 0;
+                                    ?>
+                                    <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                                        <div>
+                                            <small class="text-muted d-block mb-1">Tỷ lệ hoàn thành</small>
+                                            <h5 class="mb-0 text-success fw-bold"><?= $completionRate ?>%</h5>
+                                        </div>
+                                        <div class="fs-3 text-success opacity-50">
+                                            <i class="bi bi-percent"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Top 5 tour phổ biến -->
+                    <?php if (!empty($stats['top_tours'])): ?>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-trophy me-2 text-warning"></i>Top 5 Tour phổ biến
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Tour</th>
+                                                <th class="text-end">Giá</th>
+                                                <th class="text-end">Số booking</th>
+                                                <th class="text-end">Doanh thu</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach (array_slice($stats['top_tours'], 0, 3) as $index => $tour): ?>
+                                            <tr>
+                                                <td>
+                                                    <span class="badge bg-primary me-2">#<?= $index + 1 ?></span>
+                                                    <?= htmlspecialchars($tour['name'] ?? 'N/A') ?>
+                                                </td>
+                                                <td class="text-end"><?= number_format($tour['price'] ?? 0, 0, ',', '.') ?> ₫</td>
+                                                <td class="text-end fw-semibold"><?= number_format($tour['booking_count'] ?? 0) ?></td>
+                                                <td class="text-end fw-bold text-success"><?= number_format($tour['total_revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Thống kê theo danh mục -->
+                    <?php if (!empty($stats['category_stats'])): ?>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-tags me-2 text-success"></i>Thống kê theo danh mục
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Danh mục</th>
+                                                <th class="text-end">Tour</th>
+                                                <th class="text-end">Booking</th>
+                                                <th class="text-end">Doanh thu</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                                $displayed = 0;
+                                                foreach ($stats['category_stats'] as $cat): 
+                                                    if ($displayed >= 3) break;
+                                                    $displayed++;
+                                            ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($cat['category_name'] ?? 'N/A') ?></td>
+                                                <td class="text-end"><?= number_format($cat['tour_count'] ?? 0) ?></td>
+                                                <td class="text-end fw-semibold"><?= number_format($cat['booking_count'] ?? 0) ?></td>
+                                                <td class="text-end fw-bold text-success"><?= number_format($cat['total_revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (count($stats['category_stats']) > 3): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['category_stats']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Thống kê theo hướng dẫn viên -->
+                    <?php if (!empty($stats['guide_stats'])): ?>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-person-badge me-2 text-info"></i>Top HDV có nhiều booking
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Hướng dẫn viên</th>
+                                                <th class="text-end">Số booking</th>
+                                                <th class="text-end">Doanh thu</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                                $displayed = 0;
+                                                foreach ($stats['guide_stats'] as $guide): 
+                                                    if ($displayed >= 3) break;
+                                                    $displayed++;
+                                            ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($guide['guide_name'] ?? 'N/A') ?></td>
+                                                <td class="text-end fw-semibold"><?= number_format($guide['booking_count'] ?? 0) ?></td>
+                                                <td class="text-end fw-bold text-success"><?= number_format($guide['total_revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (count($stats['guide_stats']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['guide_stats']) - 3 ?> mục</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Biểu đồ booking theo tháng -->
+                    <?php if (!empty($stats['monthly_bookings'])): ?>
+                    <div class="col-12">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-bar-chart me-2 text-primary"></i>Booking theo tháng (12 tháng gần nhất)
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Tháng</th>
+                                                <th class="text-end">Số lượng booking</th>
+                                                <th class="text-end">Doanh thu</th>
+                                                <th class="w-50">Biểu đồ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                                $maxCount = 0;
+                                                foreach ($stats['monthly_bookings'] as $month) {
+                                                    if ($month['count'] > $maxCount) {
+                                                        $maxCount = $month['count'];
+                                                    }
+                                                }
+                                                $displayed = 0;
+                                                foreach ($stats['monthly_bookings'] as $month):
+                                                    if ($displayed >= 3) break;
+                                                    $displayed++;
+                                                    $percentage = $maxCount > 0 ? ($month['count'] / $maxCount) * 100 : 0;
+                                                    $monthName = date('m/Y', strtotime($month['month'] . '-01'));
+                                            ?>
+                                            <tr>
+                                                <td class="fw-semibold"><?= htmlspecialchars($monthName) ?></td>
+                                                <td class="text-end fw-semibold"><?= number_format($month['count'] ?? 0) ?></td>
+                                                <td class="text-end fw-bold text-success"><?= number_format($month['revenue'] ?? 0, 0, ',', '.') ?> ₫</td>
+                                                <td>
+                                                    <div class="progress" style="height: 25px;">
+                                                        <div class="progress-bar bg-primary" role="progressbar" 
+                                                             style="width: <?= $percentage ?>%" 
+                                                             aria-valuenow="<?= $month['count'] ?>" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="<?= $maxCount ?>">
+                                                            <?= $month['count'] ?>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (count($stats['monthly_bookings']) > 3): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['monthly_bookings']) - 3 ?> tháng</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Booking mới nhất -->
+                    <?php if (!empty($stats['recent_bookings'])): ?>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-clock-history me-2 text-info"></i>Booking mới nhất
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Khách hàng</th>
+                                                <th>Tour</th>
+                                                <th class="text-end">Ngày tạo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach (array_slice($stats['recent_bookings'], 0, 3) as $booking): ?>
+                                            <tr>
+                                                <td>
+                                                    <small class="text-muted"><?= htmlspecialchars($booking['customer_name'] ?? 'N/A') ?></small>
+                                                </td>
+                                                <td>
+                                                    <small><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></small>
+                                                </td>
+                                                <td class="text-end">
+                                                    <small class="text-muted"><?= date('d/m/Y', strtotime($booking['created_at'])) ?></small>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Tour mới nhất -->
+                    <?php if (!empty($stats['recent_tours'])): ?>
+                    <div class="col-12">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-airplane-engines me-2 text-primary"></i>Tour mới nhất
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php foreach (array_slice($stats['recent_tours'], 0, 6) as $tour): ?>
+                                    <div class="col-md-4 col-lg-2">
+                                        <div class="card border h-100">
+                                            <div class="card-body p-3 text-center">
+                                                <h6 class="card-title mb-2 small fw-semibold" style="font-size: 0.85rem; line-height: 1.3; min-height: 2.6rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                                    <?= htmlspecialchars($tour['name'] ?? 'N/A') ?>
+                                                </h6>
+                                                <div class="mb-2">
+                                                    <span class="badge bg-secondary small"><?= htmlspecialchars($tour['category_name'] ?? 'N/A') ?></span>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <small class="text-muted d-block">Giá</small>
+                                                    <strong class="text-primary" style="font-size: 0.9rem;"><?= number_format($tour['price'] ?? 0, 0, ',', '.') ?> ₫</strong>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-info"><?= number_format($tour['booking_count'] ?? 0) ?> booking</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Thống kê booking theo tuần -->
+                    <?php if (!empty($stats['weekly_bookings'])): ?>
+                    <div class="col-12">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-calendar-week me-2 text-success"></i>Booking theo tuần (8 tuần gần nhất)
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Tuần</th>
+                                                <th>Số lượng booking</th>
+                                                <th class="w-50">Biểu đồ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                                $maxWeekCount = 0;
+                                                foreach ($stats['weekly_bookings'] as $week) {
+                                                    if ($week['count'] > $maxWeekCount) {
+                                                        $maxWeekCount = $week['count'];
+                                                    }
+                                                }
+                                                $displayed = 0;
+                                                foreach ($stats['weekly_bookings'] as $week):
+                                                    if ($displayed >= 3) break;
+                                                    $displayed++;
+                                                    $percentage = $maxWeekCount > 0 ? ($week['count'] / $maxWeekCount) * 100 : 0;
+                                            ?>
+                                            <tr>
+                                                <td class="fw-semibold"><?= htmlspecialchars($week['week_start'] ?? 'N/A') ?></td>
+                                                <td class="fw-semibold"><?= number_format($week['count'] ?? 0) ?></td>
+                                                <td>
+                                                    <div class="progress" style="height: 20px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" 
+                                                             style="width: <?= $percentage ?>%" 
+                                                             aria-valuenow="<?= $week['count'] ?>" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="<?= $maxWeekCount ?>">
+                                                            <?= $week['count'] ?>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (count($stats['weekly_bookings']) > 3): ?>
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-2">
+                                                    <small><i class="bi bi-arrow-up me-1"></i>Cuộn lên để xem thêm <?= count($stats['weekly_bookings']) - 3 ?> tuần</small>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

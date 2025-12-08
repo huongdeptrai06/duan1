@@ -85,11 +85,10 @@ class TourController
                         $tours = $stmt->fetchAll();
                     }
                 } else {
-                    // Admin xem tất cả tours
+                    // Admin xem tất cả tours (cả status = 0 và 1)
                     $query = 'SELECT t.*, c.name as category_name
                              FROM tours t
                              LEFT JOIN categories c ON t.category_id = c.id
-                             WHERE t.status = 1
                              ORDER BY t.created_at DESC';
                     $stmt = $pdo->prepare($query);
                     $stmt->execute();
@@ -106,6 +105,7 @@ class TourController
         $leaveRequests = [];
         $notes = [];
         $confirmationsMap = [];
+        $rejectionsMap = [];
         $guideId = null;
 
         if ($isGuide && $currentUser) {
@@ -200,6 +200,24 @@ class TourController
                     // Bảng có thể chưa tồn tại
                 }
             }
+
+            // Lấy danh sách yêu cầu từ chối tour
+            if ($guideId) {
+                try {
+                    $rejectStmt = $pdo->prepare('
+                        SELECT booking_id, status, reason, created_at 
+                        FROM guide_tour_rejections 
+                        WHERE guide_id = :guide_id
+                    ');
+                    $rejectStmt->execute(['guide_id' => $guideId]);
+                    $rejections = $rejectStmt->fetchAll(PDO::FETCH_ASSOC);
+                    foreach ($rejections as $rej) {
+                        $rejectionsMap[$rej['booking_id']] = $rej;
+                    }
+                } catch (PDOException $e) {
+                    // Bảng có thể chưa tồn tại
+                }
+            }
         }
 
         view('admin.tours.index', [
@@ -211,6 +229,7 @@ class TourController
             'leaveRequests' => $leaveRequests,
             'notes' => $notes,
             'confirmationsMap' => $confirmationsMap,
+            'rejectionsMap' => $rejectionsMap,
             'guideId' => $guideId,
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
@@ -381,7 +400,8 @@ class TourController
                 $price = round($price); // Làm tròn về số nguyên
             }
         }
-        $status = isset($_POST['status']) ? 1 : 0;
+        // Mặc định status = 1 (hoạt động) khi thêm tour mới để tour hiển thị ngay trong danh sách
+        $status = isset($_POST['status']) && $_POST['status'] == '1' ? 1 : 1;
 
         $errors = [];
         $formData = [

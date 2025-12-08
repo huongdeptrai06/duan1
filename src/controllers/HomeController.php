@@ -1,5 +1,7 @@
 <?php
 // Controller chịu trách nhiệm xử lý logic cho các trang cơ bản
+require_once BASE_PATH . '/src/helpers/database.php';
+
 class HomeController
 {
     // Trang welcome - hiển thị cho người chưa đăng nhập
@@ -31,16 +33,17 @@ class HomeController
         // Lấy thông tin user hiện tại (đã đảm bảo đăng nhập ở trên)
         $currentUser = getCurrentUser();
 
-        // Lấy dữ liệu thống kê nếu là admin
+        // Lấy thống kê nếu là admin
         $stats = [];
         $errors = [];
         
-        if ($currentUser->isAdmin()) {
+        if (isAdmin()) {
             $pdo = getDB();
             
             if ($pdo === null) {
                 $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
             } else {
+                // Thống kê tổng quan
                 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 
                 try {
@@ -125,6 +128,7 @@ class HomeController
                             ORDER BY s.id
                         ')->fetchAll(PDO::FETCH_ASSOC);
                     } else {
+                        // Nếu không có bảng statuses, đếm trực tiếp từ bookings
                         $statusStats = $pdo->query('
                             SELECT 
                                 COALESCE(b.status, 0) as status_id,
@@ -252,6 +256,7 @@ class HomeController
                             LIMIT 10
                         ')->fetchAll(PDO::FETCH_ASSOC);
                     } else {
+                        // Nếu không có bảng guides, lấy từ users
                         $guideStats = $pdo->query('
                             SELECT 
                                 u.id,
@@ -355,7 +360,7 @@ class HomeController
             }
         }
 
-        // Hiển thị view home với dữ liệu title, user, stats và errors
+        // Hiển thị view home với dữ liệu title và user
         view('home', [
             'title' => 'Trang chủ - Website Quản Lý Tour',
             'user' => $currentUser,

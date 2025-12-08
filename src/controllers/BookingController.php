@@ -4,6 +4,53 @@ require_once BASE_PATH . '/src/helpers/database.php';
 
 class BookingController
 {
+    // Helper function để tạo bảng booking_customers nếu chưa tồn tại
+    private function ensureBookingCustomersTable($pdo)
+    {
+        if (!$pdo) {
+            return false;
+        }
+
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS booking_customers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    booking_id INT NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    phone VARCHAR(20),
+                    gender ENUM('male', 'female', 'other') DEFAULT NULL,
+                    email VARCHAR(255),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_booking_id (booking_id),
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            return true;
+        } catch (PDOException $e) {
+            // Nếu foreign key constraint không hoạt động, tạo lại không có foreign key
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS booking_customers (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        booking_id INT NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        phone VARCHAR(20),
+                        gender ENUM('male', 'female', 'other') DEFAULT NULL,
+                        email VARCHAR(255),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_booking_id (booking_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+                return true;
+            } catch (PDOException $e2) {
+                error_log('Create booking_customers table failed: ' . $e2->getMessage());
+                return false;
+            }
+        }
+    }
+
     // Helper function để lấy danh sách guides
     private function getGuides($pdo)
     {
@@ -307,7 +354,10 @@ class BookingController
         $guides = [];
         $statuses = [];
 
+        // Đảm bảo bảng booking_customers tồn tại
         if ($pdo) {
+            $this->ensureBookingCustomersTable($pdo);
+            
             try {
                 // Lấy danh sách tours đang hoạt động
                 $stmt = $pdo->query('SELECT id, name FROM tours WHERE status = 1 ORDER BY name');
@@ -500,6 +550,10 @@ class BookingController
             ]);
             return;
         }
+
+        // Đảm bảo bảng booking_customers tồn tại TRƯỚC KHI bắt đầu transaction
+        // (Vì DDL statements có thể tự động commit transaction)
+        $this->ensureBookingCustomersTable($pdo);
 
         try {
             $pdo->beginTransaction();
@@ -736,6 +790,30 @@ class BookingController
             
             if (!$bookingId) {
                 throw new Exception('Không thể lấy ID của booking vừa tạo.');
+            }
+
+            // Lưu danh sách khách hàng (bảng đã được đảm bảo tồn tại trước transaction)
+            if (isset($_POST['customers']) && is_array($_POST['customers'])) {
+                try {
+                    $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
+                        (booking_id, name, phone, gender, email) 
+                        VALUES (:booking_id, :name, :phone, :gender, :email)');
+                    
+                    foreach ($_POST['customers'] as $customer) {
+                        if (!empty($customer['name'])) {
+                            $customerStmt->execute([
+                                'booking_id' => $bookingId,
+                                'name' => trim($customer['name'] ?? ''),
+                                'phone' => !empty($customer['phone']) ? trim($customer['phone']) : null,
+                                'gender' => !empty($customer['gender']) ? $customer['gender'] : null,
+                                'email' => !empty($customer['email']) ? trim($customer['email']) : null,
+                            ]);
+                        }
+                    }
+                } catch (PDOException $customerError) {
+                    error_log('Failed to save customers (non-critical): ' . $customerError->getMessage());
+                    // Không rollback vì booking đã tạo thành công
+                }
             }
 
             // Ghi log trạng thái nếu có (không bắt buộc, nếu lỗi thì bỏ qua)
@@ -1040,6 +1118,19 @@ class BookingController
                 exit;
             }
 
+            // Đảm bảo bảng booking_customers tồn tại
+            $this->ensureBookingCustomersTable($pdo);
+
+            // Lấy danh sách khách hàng của booking
+            $customers = [];
+            try {
+                $customerStmt = $pdo->prepare('SELECT * FROM booking_customers WHERE booking_id = :booking_id ORDER BY id');
+                $customerStmt->execute(['booking_id' => $id]);
+                $customers = $customerStmt->fetchAll();
+            } catch (PDOException $e) {
+                error_log('Fetch customers failed: ' . $e->getMessage());
+            }
+
             // Lấy danh sách tours, guides, statuses
             $tours = [];
             try {
@@ -1057,6 +1148,7 @@ class BookingController
                 'tours' => $tours,
                 'guides' => $guides,
                 'statuses' => $statuses,
+                'customers' => $customers,
             ]);
         } catch (PDOException $e) {
             error_log('Edit booking failed: ' . $e->getMessage());
@@ -1185,6 +1277,10 @@ class BookingController
             return;
         }
 
+        // Đảm bảo bảng booking_customers tồn tại TRƯỚC KHI bắt đầu transaction
+        // (Vì DDL statements có thể tự động commit transaction)
+        $this->ensureBookingCustomersTable($pdo);
+
         try {
             $pdo->beginTransaction();
 
@@ -1219,6 +1315,36 @@ class BookingController
                 'id' => $id,
             ]);
 
+            // Cập nhật danh sách khách hàng: xóa tất cả và thêm lại
+            // (bảng đã được đảm bảo tồn tại trước transaction)
+            try {
+                // Xóa tất cả khách hàng cũ
+                $deleteStmt = $pdo->prepare('DELETE FROM booking_customers WHERE booking_id = :booking_id');
+                $deleteStmt->execute(['booking_id' => $id]);
+
+                // Thêm lại danh sách khách hàng mới
+                if (isset($_POST['customers']) && is_array($_POST['customers'])) {
+                    $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
+                        (booking_id, name, phone, gender, email) 
+                        VALUES (:booking_id, :name, :phone, :gender, :email)');
+                    
+                    foreach ($_POST['customers'] as $customer) {
+                        if (!empty($customer['name'])) {
+                            $customerStmt->execute([
+                                'booking_id' => $id,
+                                'name' => trim($customer['name'] ?? ''),
+                                'phone' => !empty($customer['phone']) ? trim($customer['phone']) : null,
+                                'gender' => !empty($customer['gender']) ? $customer['gender'] : null,
+                                'email' => !empty($customer['email']) ? trim($customer['email']) : null,
+                            ]);
+                        }
+                    }
+                }
+            } catch (PDOException $customerError) {
+                error_log('Failed to update customers (non-critical): ' . $customerError->getMessage());
+                // Không rollback vì booking đã cập nhật thành công
+            }
+
             // Không ghi log thay đổi trạng thái vì không cho phép thay đổi status khi chỉnh sửa
             // (Trạng thái chỉ có thể thay đổi qua form tạo booking mới hoặc chức năng thay đổi trạng thái riêng)
             if (false) {
@@ -1236,7 +1362,10 @@ class BookingController
 
             $pdo->commit();
         } catch (PDOException $e) {
-            $pdo->rollBack();
+            // Chỉ rollback nếu transaction đang active
+            if ($pdo && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             error_log('Update booking failed: ' . $e->getMessage());
             $errors[] = 'Không thể cập nhật booking. Vui lòng thử lại.';
             
@@ -1303,7 +1432,9 @@ class BookingController
             $oldBooking = $oldStmt->fetch();
             
             if (!$oldBooking) {
-                $pdo->rollBack();
+                if ($pdo && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 header('Location: ' . BASE_URL . 'admin/bookings');
                 exit;
             }
@@ -1316,7 +1447,9 @@ class BookingController
             $nextStatusInfo = $nextStatusStmt->fetch();
             
             if (!$nextStatusInfo) {
-                $pdo->rollBack();
+                if ($pdo && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 header('Location: ' . BASE_URL . 'admin/bookings/show&id=' . $id . '&error=' . urlencode('Không có trạng thái tiếp theo. Booking có thể đã ở trạng thái cuối cùng.'));
                 exit;
             }
@@ -1344,7 +1477,9 @@ class BookingController
 
             $pdo->commit();
         } catch (PDOException $e) {
-            $pdo->rollBack();
+            if ($pdo && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             error_log('Change booking status failed: ' . $e->getMessage());
             header('Location: ' . BASE_URL . 'admin/bookings/show&id=' . $id . '&error=' . urlencode('Không thể thay đổi trạng thái.'));
             exit;
@@ -1460,7 +1595,7 @@ class BookingController
         ]);
     }
 
-    // Danh sách khách hàng (từ bookings)
+    // Danh sách khách hàng (từ booking_customers - người đại diện của mỗi booking)
     public function customerList(): void
     {
         requireGuideOrAdmin();
@@ -1469,18 +1604,38 @@ class BookingController
         $errors = [];
         $customers = [];
 
+        // Đảm bảo bảng booking_customers tồn tại
+        if ($pdo) {
+            $this->ensureBookingCustomersTable($pdo);
+        }
+
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
             try {
-                // Lấy danh sách users đã tạo booking (khách hàng)
-                $stmt = $pdo->query('SELECT DISTINCT u.id, u.name, u.email, 
-                         COUNT(b.id) as total_bookings,
-                         MAX(b.created_at) as last_booking_date
-                         FROM users u
-                         INNER JOIN bookings b ON u.id = b.created_by
-                         GROUP BY u.id, u.name, u.email
-                         ORDER BY total_bookings DESC, last_booking_date DESC');
+                // Lấy người đại diện của mỗi booking (khách hàng đầu tiên - id nhỏ nhất)
+                $stmt = $pdo->query('
+                    SELECT 
+                        bc.id,
+                        bc.booking_id,
+                        bc.name,
+                        bc.phone,
+                        bc.gender,
+                        bc.email,
+                        b.created_at as booking_date,
+                        t.name as tour_name,
+                        ts.name as status_name
+                    FROM booking_customers bc
+                    INNER JOIN (
+                        SELECT booking_id, MIN(id) as min_id
+                        FROM booking_customers
+                        GROUP BY booking_id
+                    ) first_customer ON bc.booking_id = first_customer.booking_id AND bc.id = first_customer.min_id
+                    LEFT JOIN bookings b ON bc.booking_id = b.id
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    LEFT JOIN tour_statuses ts ON b.status = ts.id
+                    ORDER BY b.created_at DESC, bc.id ASC
+                ');
                 $customers = $stmt->fetchAll();
             } catch (PDOException $e) {
                 error_log('Customer list failed: ' . $e->getMessage());
@@ -1493,6 +1648,345 @@ class BookingController
             'customers' => $customers,
             'errors' => $errors,
         ]);
+    }
+
+    // Xem chi tiết các thành viên trong booking
+    public function customerDetail(): void
+    {
+        requireGuideOrAdmin();
+
+        $bookingId = (int)($_GET['booking_id'] ?? 0);
+        if ($bookingId <= 0) {
+            header('Location: ' . BASE_URL . 'admin/bookings/customers');
+            exit;
+        }
+
+        $pdo = getDB();
+        $errors = [];
+        $customers = [];
+        $booking = null;
+
+        if ($pdo === null) {
+            $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
+        } else {
+            // Đảm bảo bảng booking_customers tồn tại
+            $this->ensureBookingCustomersTable($pdo);
+
+            try {
+                // Lấy thông tin booking
+                $bookingStmt = $pdo->prepare('
+                    SELECT b.*, t.name as tour_name, ts.name as status_name
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    LEFT JOIN tour_statuses ts ON b.status = ts.id
+                    WHERE b.id = :booking_id
+                ');
+                $bookingStmt->execute(['booking_id' => $bookingId]);
+                $booking = $bookingStmt->fetch();
+
+                if (!$booking) {
+                    $errors[] = 'Booking không tồn tại.';
+                } else {
+                    // Lấy tất cả khách hàng trong booking
+                    $customerStmt = $pdo->prepare('
+                        SELECT * FROM booking_customers 
+                        WHERE booking_id = :booking_id 
+                        ORDER BY id ASC
+                    ');
+                    $customerStmt->execute(['booking_id' => $bookingId]);
+                    $customers = $customerStmt->fetchAll();
+                }
+            } catch (PDOException $e) {
+                error_log('Customer detail failed: ' . $e->getMessage());
+                $errors[] = 'Không thể tải chi tiết khách hàng.';
+            }
+        }
+
+        view('admin.bookings.customer_detail', [
+            'title' => 'Chi tiết khách hàng',
+            'booking' => $booking,
+            'customers' => $customers,
+            'errors' => $errors,
+        ]);
+    }
+
+    // Thêm khách hàng vào booking
+    public function addCustomer(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ.']);
+            exit;
+        }
+
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $gender = $_POST['gender'] ?? null;
+        $email = trim($_POST['email'] ?? '');
+
+        if ($bookingId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Booking ID không hợp lệ.']);
+            exit;
+        }
+
+        if (empty($name)) {
+            echo json_encode(['success' => false, 'message' => 'Tên khách hàng không được để trống.']);
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            echo json_encode(['success' => false, 'message' => 'Không thể kết nối cơ sở dữ liệu.']);
+            exit;
+        }
+
+        // Đảm bảo bảng booking_customers tồn tại
+        $this->ensureBookingCustomersTable($pdo);
+
+        try {
+            // Kiểm tra booking có tồn tại không
+            $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
+            $checkStmt->execute(['id' => $bookingId]);
+            if (!$checkStmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Booking không tồn tại.']);
+                exit;
+            }
+
+            // Thêm khách hàng
+            $stmt = $pdo->prepare('INSERT INTO booking_customers 
+                (booking_id, name, phone, gender, email) 
+                VALUES (:booking_id, :name, :phone, :gender, :email)');
+            $stmt->execute([
+                'booking_id' => $bookingId,
+                'name' => $name,
+                'phone' => !empty($phone) ? $phone : null,
+                'gender' => !empty($gender) ? $gender : null,
+                'email' => !empty($email) ? $email : null,
+            ]);
+
+            echo json_encode(['success' => true, 'message' => 'Thêm khách hàng thành công.']);
+        } catch (PDOException $e) {
+            error_log('Add customer failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Không thể thêm khách hàng.']);
+        }
+        exit;
+    }
+
+    // Import khách hàng từ Excel vào booking cụ thể
+    public function importCustomersToBooking(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_FILES['excel_file'])) {
+            echo json_encode(['success' => false, 'message' => 'Không có file được upload.']);
+            exit;
+        }
+
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        if ($bookingId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Booking ID không hợp lệ.']);
+            exit;
+        }
+
+        $file = $_FILES['excel_file'];
+        $customers = [];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'Lỗi khi upload file.']);
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            echo json_encode(['success' => false, 'message' => 'Không thể kết nối cơ sở dữ liệu.']);
+            exit;
+        }
+
+        // Đảm bảo bảng booking_customers tồn tại
+        $this->ensureBookingCustomersTable($pdo);
+
+        // Kiểm tra booking có tồn tại không
+        try {
+            $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
+            $checkStmt->execute(['id' => $bookingId]);
+            if (!$checkStmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Booking không tồn tại.']);
+                exit;
+            }
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Lỗi khi kiểm tra booking.']);
+            exit;
+        }
+
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+        try {
+            // Xử lý file Excel (.xlsx, .xls)
+            if (in_array($fileExtension, ['xlsx', 'xls'])) {
+                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+                    require_once BASE_PATH . '/vendor/autoload.php';
+                    
+                    $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
+                    $worksheet = $spreadsheet->getActiveSheet();
+                    $rows = $worksheet->toArray();
+                    
+                    array_shift($rows); // Bỏ qua header
+                    
+                    foreach ($rows as $row) {
+                        if (!empty($row[0])) {
+                            $customer = [
+                                'name' => trim($row[0] ?? ''),
+                                'phone' => !empty($row[1]) ? trim($row[1]) : null,
+                                'gender' => null,
+                                'email' => !empty($row[3]) ? trim($row[3]) : null,
+                            ];
+                            
+                            if (!empty($row[2])) {
+                                $genderStr = strtolower(trim($row[2]));
+                                if (in_array($genderStr, ['nam', 'male', 'm', '1'])) {
+                                    $customer['gender'] = 'male';
+                                } elseif (in_array($genderStr, ['nữ', 'female', 'f', '2'])) {
+                                    $customer['gender'] = 'female';
+                                } elseif (in_array($genderStr, ['khác', 'other', 'o', '3'])) {
+                                    $customer['gender'] = 'other';
+                                }
+                            }
+                            
+                            if (!empty($customer['name'])) {
+                                $customers[] = $customer;
+                            }
+                        }
+                    }
+                } else {
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'Cần cài đặt thư viện PhpSpreadsheet để đọc file Excel. Chạy lệnh: composer require phpoffice/phpspreadsheet'
+                    ]);
+                    exit;
+                }
+            } 
+            // Xử lý file CSV
+            elseif ($fileExtension === 'csv') {
+                $handle = fopen($file['tmp_name'], 'r');
+                if ($handle !== false) {
+                    fgetcsv($handle); // Bỏ qua header
+                    
+                    while (($row = fgetcsv($handle)) !== false) {
+                        if (!empty($row[0])) {
+                            $customer = [
+                                'name' => trim($row[0] ?? ''),
+                                'phone' => !empty($row[1]) ? trim($row[1]) : null,
+                                'gender' => null,
+                                'email' => !empty($row[3]) ? trim($row[3]) : null,
+                            ];
+                            
+                            if (!empty($row[2])) {
+                                $genderStr = strtolower(trim($row[2]));
+                                if (in_array($genderStr, ['nam', 'male', 'm', '1'])) {
+                                    $customer['gender'] = 'male';
+                                } elseif (in_array($genderStr, ['nữ', 'female', 'f', '2'])) {
+                                    $customer['gender'] = 'female';
+                                } elseif (in_array($genderStr, ['khác', 'other', 'o', '3'])) {
+                                    $customer['gender'] = 'other';
+                                }
+                            }
+                            
+                            if (!empty($customer['name'])) {
+                                $customers[] = $customer;
+                            }
+                        }
+                    }
+                    fclose($handle);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Định dạng file không được hỗ trợ. Vui lòng sử dụng file .xlsx, .xls hoặc .csv']);
+                exit;
+            }
+
+            // Lưu khách hàng vào database
+            $stmt = $pdo->prepare('INSERT INTO booking_customers 
+                (booking_id, name, phone, gender, email) 
+                VALUES (:booking_id, :name, :phone, :gender, :email)');
+            
+            $successCount = 0;
+            foreach ($customers as $customer) {
+                try {
+                    $stmt->execute([
+                        'booking_id' => $bookingId,
+                        'name' => $customer['name'],
+                        'phone' => $customer['phone'],
+                        'gender' => $customer['gender'],
+                        'email' => $customer['email'],
+                    ]);
+                    $successCount++;
+                } catch (PDOException $e) {
+                    error_log('Failed to insert customer: ' . $e->getMessage());
+                }
+            }
+
+            echo json_encode([
+                'success' => true,
+                'count' => $successCount,
+                'message' => 'Import thành công ' . $successCount . ' khách hàng.'
+            ]);
+        } catch (Exception $e) {
+            error_log('Import customers to booking failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Lỗi khi đọc file: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // Xóa khách hàng khỏi booking
+    public function deleteCustomer(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ.']);
+            exit;
+        }
+
+        $customerId = (int)($_POST['customer_id'] ?? 0);
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+
+        if ($customerId <= 0 || $bookingId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID không hợp lệ.']);
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            echo json_encode(['success' => false, 'message' => 'Không thể kết nối cơ sở dữ liệu.']);
+            exit;
+        }
+
+        try {
+            // Kiểm tra khách hàng có thuộc booking này không
+            $checkStmt = $pdo->prepare('SELECT id FROM booking_customers WHERE id = :id AND booking_id = :booking_id LIMIT 1');
+            $checkStmt->execute(['id' => $customerId, 'booking_id' => $bookingId]);
+            if (!$checkStmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại hoặc không thuộc booking này.']);
+                exit;
+            }
+
+            // Xóa khách hàng
+            $deleteStmt = $pdo->prepare('DELETE FROM booking_customers WHERE id = :id AND booking_id = :booking_id');
+            $deleteStmt->execute(['id' => $customerId, 'booking_id' => $bookingId]);
+
+            echo json_encode(['success' => true, 'message' => 'Xóa khách hàng thành công.']);
+        } catch (PDOException $e) {
+            error_log('Delete customer failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Không thể xóa khách hàng.']);
+        }
+        exit;
     }
 
     // Thêm ghi chú
@@ -1624,7 +2118,9 @@ class BookingController
                 
                 $pdo->commit();
             } catch (PDOException $e) {
-                $pdo->rollBack();
+                if ($pdo && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 error_log('Delete booking failed: ' . $e->getMessage());
                 header('Location: ' . BASE_URL . 'admin/bookings?error=' . urlencode('Không thể xóa booking.'));
                 exit;
@@ -1632,6 +2128,130 @@ class BookingController
         }
 
         header('Location: ' . BASE_URL . 'admin/bookings?success=' . urlencode('Đã xóa booking.'));
+        exit;
+    }
+
+    // Import khách hàng từ file Excel/CSV
+    public function importCustomers(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_FILES['excel_file'])) {
+            echo json_encode(['success' => false, 'message' => 'Không có file được upload.']);
+            exit;
+        }
+
+        $file = $_FILES['excel_file'];
+        $customers = [];
+
+        // Kiểm tra lỗi upload
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'Lỗi khi upload file.']);
+            exit;
+        }
+
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+        try {
+            // Xử lý file Excel (.xlsx, .xls)
+            if (in_array($fileExtension, ['xlsx', 'xls'])) {
+                // Kiểm tra xem có thư viện PhpSpreadsheet không
+                if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+                    require_once BASE_PATH . '/vendor/autoload.php';
+                    
+                    $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
+                    $worksheet = $spreadsheet->getActiveSheet();
+                    $rows = $worksheet->toArray();
+                    
+                    // Bỏ qua dòng đầu tiên (header)
+                    array_shift($rows);
+                    
+                    foreach ($rows as $row) {
+                        if (!empty($row[0])) { // Tên khách hàng (cột A)
+                            $customer = [
+                                'name' => trim($row[0] ?? ''),
+                                'phone' => !empty($row[1]) ? trim($row[1]) : null, // Cột B
+                                'gender' => null,
+                                'email' => !empty($row[3]) ? trim($row[3]) : null, // Cột D
+                            ];
+                            
+                            // Xử lý giới tính (cột C)
+                            if (!empty($row[2])) {
+                                $genderStr = strtolower(trim($row[2]));
+                                if (in_array($genderStr, ['nam', 'male', 'm', '1'])) {
+                                    $customer['gender'] = 'male';
+                                } elseif (in_array($genderStr, ['nữ', 'female', 'f', '2'])) {
+                                    $customer['gender'] = 'female';
+                                } elseif (in_array($genderStr, ['khác', 'other', 'o', '3'])) {
+                                    $customer['gender'] = 'other';
+                                }
+                            }
+                            
+                            if (!empty($customer['name'])) {
+                                $customers[] = $customer;
+                            }
+                        }
+                    }
+                } else {
+                    // Nếu chưa có PhpSpreadsheet, hướng dẫn cài đặt
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'Cần cài đặt thư viện PhpSpreadsheet để đọc file Excel. Chạy lệnh: composer require phpoffice/phpspreadsheet'
+                    ]);
+                    exit;
+                }
+            } 
+            // Xử lý file CSV
+            elseif ($fileExtension === 'csv') {
+                $handle = fopen($file['tmp_name'], 'r');
+                if ($handle !== false) {
+                    // Bỏ qua dòng đầu tiên (header)
+                    fgetcsv($handle);
+                    
+                    while (($row = fgetcsv($handle)) !== false) {
+                        if (!empty($row[0])) { // Tên khách hàng
+                            $customer = [
+                                'name' => trim($row[0] ?? ''),
+                                'phone' => !empty($row[1]) ? trim($row[1]) : null,
+                                'gender' => null,
+                                'email' => !empty($row[3]) ? trim($row[3]) : null,
+                            ];
+                            
+                            // Xử lý giới tính
+                            if (!empty($row[2])) {
+                                $genderStr = strtolower(trim($row[2]));
+                                if (in_array($genderStr, ['nam', 'male', 'm', '1'])) {
+                                    $customer['gender'] = 'male';
+                                } elseif (in_array($genderStr, ['nữ', 'female', 'f', '2'])) {
+                                    $customer['gender'] = 'female';
+                                } elseif (in_array($genderStr, ['khác', 'other', 'o', '3'])) {
+                                    $customer['gender'] = 'other';
+                                }
+                            }
+                            
+                            if (!empty($customer['name'])) {
+                                $customers[] = $customer;
+                            }
+                        }
+                    }
+                    fclose($handle);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Định dạng file không được hỗ trợ. Vui lòng sử dụng file .xlsx, .xls hoặc .csv']);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'customers' => $customers,
+                'message' => 'Import thành công ' . count($customers) . ' khách hàng.'
+            ]);
+        } catch (Exception $e) {
+            error_log('Import customers failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Lỗi khi đọc file: ' . $e->getMessage()]);
+        }
         exit;
     }
 }
