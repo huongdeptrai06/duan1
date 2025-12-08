@@ -3,6 +3,22 @@ ob_start();
 ?>
 <div class="row">
     <div class="col-12">
+        <?php if ($successMessage): ?>
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <?= htmlspecialchars($successMessage) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($errorMessage): ?>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                <?= htmlspecialchars($errorMessage) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
         <!-- Danh sách tour -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-white border-0">
@@ -304,16 +320,10 @@ ob_start();
                         <tbody>
                             <?php foreach ($assignedBookings as $booking): 
                                 $isConfirmed = isset($confirmationsMap[$booking['id']]) && $confirmationsMap[$booking['id']]['confirmed'] == 1;
-                                $rejection = $rejectionsMap[$booking['id']] ?? null;
-                                $hasPendingRejection = $rejection && $rejection['status'] === 'pending';
                             ?>
                             <tr>
                                 <td>
-                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" 
-                                       class="text-decoration-none tour-name-link" 
-                                       style="color: inherit;">
-                                        <strong><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></strong>
-                                    </a>
+                                    <strong><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></strong>
                                     <?php if ($booking['tour_price']): ?>
                                         <br><small class="text-muted"><?= number_format($booking['tour_price'], 0, ',', '.') ?> ₫</small>
                                     <?php endif; ?>
@@ -353,62 +363,17 @@ ob_start();
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <?php if (!$hasPendingRejection): ?>
-                                        <form action="<?= BASE_URL ?>guides/confirm-tour" method="post" class="d-inline">
-                                            <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
-                                            <input type="hidden" name="confirmed" value="<?= $isConfirmed ? '0' : '1' ?>">
-                                            <button type="submit" class="btn btn-sm <?= $isConfirmed ? 'btn-outline-danger' : 'btn-success' ?>">
-                                                <i class="bi <?= $isConfirmed ? 'bi-x-circle' : 'bi-check-circle' ?> me-1"></i>
-                                                <?= $isConfirmed ? 'Hủy xác nhận' : 'Xác nhận' ?>
-                                            </button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal<?= $booking['id'] ?>">
-                                            <i class="bi bi-x-circle me-1"></i>Từ chối
+                                    <form action="<?= BASE_URL ?>guides/confirm-tour" method="post" class="d-inline">
+                                        <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
+                                        <input type="hidden" name="confirmed" value="<?= $isConfirmed ? '0' : '1' ?>">
+                                        <button type="submit" class="btn btn-sm <?= $isConfirmed ? 'btn-outline-danger' : 'btn-success' ?>">
+                                            <i class="bi <?= $isConfirmed ? 'bi-x-circle' : 'bi-check-circle' ?> me-1"></i>
+                                            <?= $isConfirmed ? 'Hủy xác nhận' : 'Xác nhận' ?>
                                         </button>
-                                        <?php else: ?>
-                                        <span class="badge bg-warning">
-                                            <i class="bi bi-clock me-1"></i>Đã gửi yêu cầu từ chối
-                                        </span>
-                                        <?php endif; ?>
-                                    </div>
-                                    
-                                    <!-- Modal từ chối tour -->
-                                    <div class="modal fade" id="rejectModal<?= $booking['id'] ?>" tabindex="-1" aria-labelledby="rejectModalLabel<?= $booking['id'] ?>" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="rejectModalLabel<?= $booking['id'] ?>">
-                                                        <i class="bi bi-x-circle me-2 text-danger"></i>Từ chối tour
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <form action="<?= BASE_URL ?>guides/reject-tour" method="post">
-                                                    <div class="modal-body">
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold">Tour:</label>
-                                                            <p class="mb-0"><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></p>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label for="reason<?= $booking['id'] ?>" class="form-label fw-semibold">
-                                                                Lý do từ chối <span class="text-danger">*</span>
-                                                            </label>
-                                                            <textarea class="form-control" id="reason<?= $booking['id'] ?>" name="reason" rows="4" 
-                                                                      placeholder="Nhập lý do từ chối tour này..." required></textarea>
-                                                            <small class="text-muted">Lý do này sẽ được gửi cho admin để xem xét.</small>
-                                                        </div>
-                                                        <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                                                        <button type="submit" class="btn btn-danger">
-                                                            <i class="bi bi-send me-1"></i>Gửi yêu cầu từ chối
-                                                        </button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </form>
+                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-eye me-1"></i>Chi tiết
+                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -438,17 +403,4 @@ view('layouts.AdminLayout', [
     ],
 ]);
 ?>
-<style>
-.tour-name-link {
-    transition: opacity 0.3s ease;
-}
-
-.tour-name-link:hover {
-    opacity: 0.6;
-}
-
-.tour-name-link strong {
-    cursor: pointer;
-}
-</style>
 
