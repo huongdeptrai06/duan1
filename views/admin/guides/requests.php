@@ -285,6 +285,7 @@ ob_start();
                                         <th>Tour</th>
                                         <th>Ngày khởi hành</th>
                                         <th>Trạng thái</th>
+                                        <th>Điểm danh</th>
                                         <th>Ngày gửi</th>
                                         <th>Thao tác</th>
                                     </tr>
@@ -306,6 +307,31 @@ ob_start();
                                                 <span class="badge bg-success">Xác nhận</span>
                                             <?php else: ?>
                                                 <span class="badge bg-warning">Hủy xác nhận</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php 
+                                            $attendanceTotal = isset($conf['attendance_total']) ? (int)$conf['attendance_total'] : 0;
+                                            $attendancePresent = isset($conf['attendance_present']) ? (int)$conf['attendance_present'] : 0;
+                                            $attendanceAbsent = isset($conf['attendance_absent']) ? (int)$conf['attendance_absent'] : 0;
+                                            $bookingId = $conf['booking_id'] ?? 0;
+                                            ?>
+                                            <?php if ($attendanceTotal > 0 || $attendancePresent > 0 || $attendanceAbsent > 0): ?>
+                                                <div class="d-flex flex-column gap-1">
+                                                    <span class="badge bg-success">
+                                                        <i class="bi bi-check-circle me-1"></i>
+                                                        Có mặt: <?= $attendancePresent ?>
+                                                    </span>
+                                                    <span class="badge bg-danger">
+                                                        <i class="bi bi-x-circle me-1"></i>
+                                                        Vắng mặt: <?= $attendanceAbsent ?>
+                                                    </span>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-muted" title="Booking ID: <?= $bookingId ?>">
+                                                    <i class="bi bi-dash-circle me-1"></i>
+                                                    Chưa điểm danh
+                                                </span>
                                             <?php endif; ?>
                                         </td>
                                         <td><?= date('d/m/Y H:i', strtotime($conf['created_at'])) ?></td>

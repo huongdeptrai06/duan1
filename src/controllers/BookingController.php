@@ -364,11 +364,16 @@ class BookingController
                 $stmt = $pdo->query('SELECT id, name FROM tours WHERE status = 1 ORDER BY name');
                 $tours = $stmt->fetchAll();
                 
-                // Lấy danh sách tất cả khách hàng (distinct từ booking_customers)
+                // Lấy danh sách chỉ người đại diện (khách hàng đầu tiên của mỗi booking)
                 $custStmt = $pdo->query('
-                    SELECT DISTINCT id, name, phone, email
-                    FROM booking_customers 
-                    ORDER BY name ASC
+                    SELECT bc.id, bc.name, bc.phone, bc.email
+                    FROM booking_customers bc
+                    INNER JOIN (
+                        SELECT booking_id, MIN(id) as min_id
+                        FROM booking_customers
+                        GROUP BY booking_id
+                    ) first_customer ON bc.booking_id = first_customer.booking_id AND bc.id = first_customer.min_id
+                    ORDER BY bc.name ASC
                 ');
                 $customers = $custStmt->fetchAll();
             } catch (PDOException $e) {
@@ -818,17 +823,17 @@ class BookingController
                     
                     if ($representative) {
                         // Copy thông tin người đại diện vào booking mới
-                        $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
-                            (booking_id, name, phone, gender, email) 
-                            VALUES (:booking_id, :name, :phone, :gender, :email)');
-                        
-                        $customerStmt->execute([
-                            'booking_id' => $bookingId,
+                    $customerStmt = $pdo->prepare('INSERT INTO booking_customers 
+                        (booking_id, name, phone, gender, email) 
+                        VALUES (:booking_id, :name, :phone, :gender, :email)');
+                    
+                            $customerStmt->execute([
+                                'booking_id' => $bookingId,
                             'name' => $representative['name'],
                             'phone' => $representative['phone'] ?? null,
                             'gender' => $representative['gender'] ?? null,
                             'email' => $representative['email'] ?? null,
-                        ]);
+                            ]);
                     }
                 } catch (PDOException $customerError) {
                     error_log('Failed to save representative customer (non-critical): ' . $customerError->getMessage());
@@ -1634,7 +1639,7 @@ class BookingController
         }
 
         $bookings = [];
-        
+
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
@@ -1869,7 +1874,7 @@ class BookingController
                 if (file_exists(BASE_PATH . '/vendor/autoload.php')) {
                     require_once BASE_PATH . '/vendor/autoload.php';
                 }
-                
+                    
                 if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
                     $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
                     $worksheet = $spreadsheet->getActiveSheet();
@@ -1982,6 +1987,107 @@ class BookingController
     }
 
     // Xóa khách hàng khỏi booking
+    // Lấy thông tin khách hàng để sửa
+    public function editCustomer(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        $customerId = (int)($_GET['customer_id'] ?? 0);
+
+        if ($customerId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID khách hàng không hợp lệ.']);
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            echo json_encode(['success' => false, 'message' => 'Không thể kết nối cơ sở dữ liệu.']);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->prepare('SELECT id, booking_id, name, phone, gender, email FROM booking_customers WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $customerId]);
+            $customer = $stmt->fetch();
+
+            if (!$customer) {
+                echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại.']);
+                exit;
+            }
+
+            echo json_encode(['success' => true, 'customer' => $customer]);
+        } catch (PDOException $e) {
+            error_log('Get customer failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Không thể lấy thông tin khách hàng.']);
+        }
+        exit;
+    }
+
+    // Cập nhật thông tin khách hàng
+    public function updateCustomer(): void
+    {
+        requireAdmin();
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ.']);
+            exit;
+        }
+
+        $customerId = (int)($_POST['customer_id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $gender = $_POST['gender'] ?? null;
+        $email = trim($_POST['email'] ?? '');
+
+        if ($customerId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID khách hàng không hợp lệ.']);
+            exit;
+        }
+
+        if (empty($name)) {
+            echo json_encode(['success' => false, 'message' => 'Tên khách hàng không được để trống.']);
+            exit;
+        }
+
+        $pdo = getDB();
+        if ($pdo === null) {
+            echo json_encode(['success' => false, 'message' => 'Không thể kết nối cơ sở dữ liệu.']);
+            exit;
+        }
+
+        try {
+            // Kiểm tra khách hàng có tồn tại không
+            $checkStmt = $pdo->prepare('SELECT id FROM booking_customers WHERE id = :id LIMIT 1');
+            $checkStmt->execute(['id' => $customerId]);
+            if (!$checkStmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại.']);
+                exit;
+            }
+
+            // Cập nhật thông tin khách hàng
+            $stmt = $pdo->prepare('UPDATE booking_customers 
+                SET name = :name, phone = :phone, gender = :gender, email = :email, updated_at = NOW()
+                WHERE id = :id');
+            $stmt->execute([
+                'id' => $customerId,
+                'name' => $name,
+                'phone' => !empty($phone) ? $phone : null,
+                'gender' => !empty($gender) ? $gender : null,
+                'email' => !empty($email) ? $email : null,
+            ]);
+
+            echo json_encode(['success' => true, 'message' => 'Cập nhật thông tin khách hàng thành công.']);
+        } catch (PDOException $e) {
+            error_log('Update customer failed: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Không thể cập nhật thông tin khách hàng.']);
+        }
+        exit;
+    }
+
     public function deleteCustomer(): void
     {
         requireAdmin();
@@ -2198,7 +2304,7 @@ class BookingController
                 if (file_exists(BASE_PATH . '/vendor/autoload.php')) {
                     require_once BASE_PATH . '/vendor/autoload.php';
                 }
-                
+                    
                 if (class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
                     $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
                     $worksheet = $spreadsheet->getActiveSheet();

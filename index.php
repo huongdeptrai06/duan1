@@ -101,6 +101,8 @@ match ($act) {
     'admin/bookings/customers' => $bookingController->customerList(),
     'admin/bookings/customer-detail' => $bookingController->customerDetail(),
     'admin/bookings/add-customer' => $bookingController->addCustomer(),
+    'admin/bookings/edit-customer' => $bookingController->editCustomer(),
+    'admin/bookings/update-customer' => $bookingController->updateCustomer(),
     'admin/bookings/import-customers-to-booking' => $bookingController->importCustomersToBooking(),
     'admin/bookings/delete-customer' => $bookingController->deleteCustomer(),
     'admin/bookings/import-customers' => $bookingController->importCustomers(),

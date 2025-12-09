@@ -20,8 +20,8 @@ ob_start();
                             <i class="bi bi-file-earmark-excel me-1"></i> Import từ Excel
                         </button>
                         <a href="<?= BASE_URL ?>admin/bookings" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-1"></i> Quay lại
-                        </a>
+                        <i class="bi bi-arrow-left me-1"></i> Quay lại
+                    </a>
                     </div>
                 </div>
             </div>
@@ -93,13 +93,20 @@ ob_start();
                                         </td>
                                         <td class="text-end">
                                             <div class="d-flex gap-2 justify-content-end">
-                                                <a href="<?= BASE_URL ?>admin/bookings/customer-detail&booking_id=<?= $customer['booking_id'] ?>" class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-eye me-1"></i> Chi tiết
-                                                </a>
+                                            <a href="<?= BASE_URL ?>admin/bookings/customer-detail&booking_id=<?= $customer['booking_id'] ?>" class="btn-action btn-action-view" title="Chi tiết">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
                                                 <button type="button" 
-                                                        class="btn btn-sm btn-outline-danger" 
-                                                        onclick="deleteCustomerFromList(<?= $customer['id'] ?>, <?= $customer['booking_id'] ?>, '<?= htmlspecialchars($customer['name'] ?? '', ENT_QUOTES) ?>')">
-                                                    <i class="bi bi-trash me-1"></i> Xóa
+                                                        class="btn-action btn-action-edit" 
+                                                        onclick="editCustomer(<?= $customer['id'] ?>)"
+                                                        title="Sửa">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn-action btn-action-delete" 
+                                                        onclick="deleteCustomerFromList(<?= $customer['id'] ?>, <?= $customer['booking_id'] ?>, '<?= htmlspecialchars($customer['name'] ?? '', ENT_QUOTES) ?>')"
+                                                        title="Xóa">
+                                                    <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -175,6 +182,52 @@ ob_start();
     </div>
 </div>
 
+<!-- Modal sửa khách hàng -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil me-2"></i>Sửa khách hàng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editCustomerForm" onsubmit="submitEditCustomer(event)">
+                <div class="modal-body">
+                    <input type="hidden" name="customer_id" id="edit_customer_id">
+                    <div class="mb-3">
+                        <label class="form-label">Tên khách hàng <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" id="edit_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" name="phone" id="edit_phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Giới tính</label>
+                        <select class="form-select" name="gender" id="edit_gender">
+                            <option value="">-- Chọn --</option>
+                            <option value="male">Nam</option>
+                            <option value="female">Nữ</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="edit_email">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check me-1"></i>Cập nhật
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Import Excel -->
 <div class="modal fade" id="importExcelModal" tabindex="-1">
     <div class="modal-dialog">
@@ -222,6 +275,69 @@ ob_start();
         </div>
     </div>
 </div>
+
+<style>
+.btn-action {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid;
+    border-radius: 8px;
+    background: transparent;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-action i {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.btn-action-view {
+    color: #0dcaf0;
+    border-color: #0dcaf0;
+}
+
+.btn-action-view:hover {
+    background-color: #0dcaf0;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(13, 202, 240, 0.3);
+}
+
+.btn-action-edit {
+    color: #0d6efd;
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.btn-action-edit:hover {
+    background-color: #0d6efd;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+}
+
+.btn-action-delete {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-action-delete:hover {
+    background-color: #dc3545;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-action:active {
+    transform: translateY(0);
+}
+</style>
 
 <script>
 function showAddCustomerModal() {
@@ -289,6 +405,56 @@ function submitImportExcel(event) {
         alert('Có lỗi xảy ra khi import');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i>Import';
+    });
+}
+
+function editCustomer(customerId) {
+    // Lấy thông tin khách hàng
+    fetch('<?= BASE_URL ?>admin/bookings/edit-customer&customer_id=' + customerId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const customer = data.customer;
+                document.getElementById('edit_customer_id').value = customer.id;
+                document.getElementById('edit_name').value = customer.name || '';
+                document.getElementById('edit_phone').value = customer.phone || '';
+                document.getElementById('edit_gender').value = customer.gender || '';
+                document.getElementById('edit_email').value = customer.email || '';
+                
+                const modal = new bootstrap.Modal(document.getElementById('editCustomerModal'));
+                modal.show();
+            } else {
+                alert('Lỗi: ' + (data.message || 'Không thể lấy thông tin khách hàng.'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Có lỗi xảy ra khi lấy thông tin khách hàng.');
+        });
+}
+
+function submitEditCustomer(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    fetch('<?= BASE_URL ?>admin/bookings/update-customer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Lỗi: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra khi cập nhật khách hàng');
     });
 }
 

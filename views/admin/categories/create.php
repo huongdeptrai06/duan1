@@ -218,7 +218,7 @@ textarea.form-control-custom {
                             Trạng thái
                         </label>
                         <div class="status-toggle-container">
-                            <div class="form-check form-switch">
+                        <div class="form-check form-switch">
                                 <input class="form-check-input form-check-input-custom" 
                                        type="checkbox" 
                                        role="switch" 
