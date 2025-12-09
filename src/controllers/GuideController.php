@@ -929,6 +929,7 @@ class GuideController
         $pendingNotes = [];
         $pendingConfirmations = [];
         $pendingRejections = [];
+        $attendanceReports = []; // Danh sách điểm danh đã thực hiện
 
         try {
             // Tạo các bảng nếu chưa tồn tại
@@ -999,8 +1000,15 @@ class GuideController
                 
                 // Lấy thông tin điểm danh cho mỗi booking
                 foreach ($pendingConfirmations as &$conf) {
-                    $bookingId = $conf['booking_id'] ?? null;
-                    if (!empty($bookingId)) {
+                    // Lấy booking_id từ gtc.booking_id (đã select trong query)
+                    $bookingId = isset($conf['booking_id']) ? (int)$conf['booking_id'] : null;
+                    
+                    // Debug: Log booking_id để kiểm tra
+                    if (empty($bookingId) || $bookingId <= 0) {
+                        error_log('Warning: booking_id is empty or invalid for confirmation id: ' . ($conf['id'] ?? 'unknown') . ', booking_id: ' . ($conf['booking_id'] ?? 'null'));
+                    }
+                    
+                    if (!empty($bookingId) && $bookingId > 0) {
                         try {
                             // Đảm bảo cột attendance_status tồn tại
                             $checkColumn = $pdo->query("SHOW COLUMNS FROM booking_customers LIKE 'attendance_status'");
@@ -1009,33 +1017,50 @@ class GuideController
                             }
                             
                             // Đếm số người có mặt và vắng mặt - query riêng biệt để đảm bảo chính xác
-                            $totalStmt = $pdo->prepare('SELECT COUNT(*) as total FROM booking_customers WHERE booking_id = :booking_id');
-                            $totalStmt->execute(['booking_id' => $bookingId]);
-                            $total = $totalStmt->fetch(PDO::FETCH_ASSOC);
+                            // Đảm bảo booking_id là số nguyên
+                            $bookingId = (int)$bookingId;
                             
-                            $presentStmt = $pdo->prepare('SELECT COUNT(*) as count FROM booking_customers WHERE booking_id = :booking_id AND attendance_status = "present"');
-                            $presentStmt->execute(['booking_id' => $bookingId]);
-                            $present = $presentStmt->fetch(PDO::FETCH_ASSOC);
-                            
-                            $absentStmt = $pdo->prepare('SELECT COUNT(*) as count FROM booking_customers WHERE booking_id = :booking_id AND attendance_status = "absent"');
-                            $absentStmt->execute(['booking_id' => $bookingId]);
-                            $absent = $absentStmt->fetch(PDO::FETCH_ASSOC);
+                            // Query tổng hợp để lấy tất cả thông tin điểm danh - dùng COUNT với điều kiện
+                            $attendanceStmt = $pdo->prepare('
+                                SELECT 
+                                    COUNT(*) as total,
+                                    COUNT(CASE WHEN attendance_status = "present" THEN 1 END) as present_count,
+                                    COUNT(CASE WHEN attendance_status = "absent" THEN 1 END) as absent_count
+                                FROM booking_customers 
+                                WHERE booking_id = :booking_id
+                            ');
+                            $attendanceStmt->execute(['booking_id' => $bookingId]);
+                            $attendanceData = $attendanceStmt->fetch(PDO::FETCH_ASSOC);
                             
                             // Kiểm tra dữ liệu thực tế trong database
-                            $checkDataStmt = $pdo->prepare('SELECT id, name, attendance_status FROM booking_customers WHERE booking_id = :booking_id LIMIT 5');
+                            $checkDataStmt = $pdo->prepare('SELECT id, name, attendance_status FROM booking_customers WHERE booking_id = :booking_id ORDER BY id LIMIT 10');
                             $checkDataStmt->execute(['booking_id' => $bookingId]);
                             $checkData = $checkDataStmt->fetchAll(PDO::FETCH_ASSOC);
                             
-                            $conf['attendance_total'] = (int)($total['total'] ?? 0);
-                            $conf['attendance_present'] = (int)($present['count'] ?? 0);
-                            $conf['attendance_absent'] = (int)($absent['count'] ?? 0);
+                            // Ép kiểu và đảm bảo không null - xử lý cả trường hợp NULL từ database
+                            $conf['attendance_total'] = isset($attendanceData['total']) && $attendanceData['total'] !== null ? (int)$attendanceData['total'] : 0;
+                            $conf['attendance_present'] = isset($attendanceData['present_count']) && $attendanceData['present_count'] !== null ? (int)$attendanceData['present_count'] : 0;
+                            $conf['attendance_absent'] = isset($attendanceData['absent_count']) && $attendanceData['absent_count'] !== null ? (int)$attendanceData['absent_count'] : 0;
                             
-                            // Debug log chi tiết
+                            // Đảm bảo các giá trị không null
+                            if (!isset($conf['attendance_total']) || $conf['attendance_total'] === null) $conf['attendance_total'] = 0;
+                            if (!isset($conf['attendance_present']) || $conf['attendance_present'] === null) $conf['attendance_present'] = 0;
+                            if (!isset($conf['attendance_absent']) || $conf['attendance_absent'] === null) $conf['attendance_absent'] = 0;
+                            
+                            // Debug log chi tiết - log tất cả để kiểm tra
                             error_log('=== Attendance Debug for booking_id: ' . $bookingId . ' ===');
+                            error_log('Raw data from DB: ' . json_encode($attendanceData));
                             error_log('Total customers: ' . $conf['attendance_total']);
                             error_log('Present: ' . $conf['attendance_present']);
                             error_log('Absent: ' . $conf['attendance_absent']);
-                            error_log('Sample data: ' . json_encode($checkData));
+                            error_log('Sample customer data: ' . json_encode($checkData));
+                            
+                            // Kiểm tra xem có khách hàng nào không
+                            if ($conf['attendance_total'] == 0) {
+                                error_log('WARNING: No customers found for booking_id: ' . $bookingId);
+                            } else {
+                                error_log('SUCCESS: Found ' . $conf['attendance_total'] . ' customers, ' . $conf['attendance_present'] . ' present, ' . $conf['attendance_absent'] . ' absent');
+                            }
                         } catch (PDOException $e) {
                             error_log('Get attendance info failed for booking ' . $bookingId . ': ' . $e->getMessage());
                             $conf['attendance_total'] = 0;
@@ -1130,6 +1155,79 @@ class GuideController
                 $pendingRejections = [];
             }
 
+            // Lấy danh sách điểm danh đã thực hiện (có người có mặt hoặc vắng mặt)
+            try {
+                // Đảm bảo cột attendance_status tồn tại
+                $checkColumn = $pdo->query("SHOW COLUMNS FROM booking_customers LIKE 'attendance_status'");
+                if (!$checkColumn->fetch()) {
+                    $pdo->exec("ALTER TABLE booking_customers ADD COLUMN attendance_status ENUM('present', 'absent', 'pending') DEFAULT 'pending'");
+                }
+                
+                // Lấy các booking đã có điểm danh (có ít nhất 1 người có mặt hoặc vắng mặt)
+                $attendanceStmt = $pdo->query('
+                    SELECT DISTINCT b.id as booking_id,
+                           b.start_date,
+                           b.end_date,
+                           t.name as tour_name,
+                           u.name as guide_name,
+                           b.assigned_guide_id
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    LEFT JOIN users u ON b.assigned_guide_id = u.id AND u.role = "huong_dan_vien"
+                    INNER JOIN booking_customers bc ON b.id = bc.booking_id
+                    WHERE bc.attendance_status IN ("present", "absent")
+                    ORDER BY b.start_date DESC, b.id DESC
+                    LIMIT 50
+                ');
+                $attendanceBookings = $attendanceStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Lấy chi tiết điểm danh cho mỗi booking
+                foreach ($attendanceBookings as $booking) {
+                    $bookingId = (int)$booking['booking_id'];
+                    
+                    // Lấy danh sách người có mặt
+                    $presentStmt = $pdo->prepare('
+                        SELECT id, name, phone, email, gender, attendance_status
+                        FROM booking_customers
+                        WHERE booking_id = :booking_id AND attendance_status = "present"
+                        ORDER BY id ASC
+                    ');
+                    $presentStmt->execute(['booking_id' => $bookingId]);
+                    $presentCustomers = $presentStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Lấy danh sách người vắng mặt
+                    $absentStmt = $pdo->prepare('
+                        SELECT id, name, phone, email, gender, attendance_status
+                        FROM booking_customers
+                        WHERE booking_id = :booking_id AND attendance_status = "absent"
+                        ORDER BY id ASC
+                    ');
+                    $absentStmt->execute(['booking_id' => $bookingId]);
+                    $absentCustomers = $absentStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Đếm tổng số
+                    $totalStmt = $pdo->prepare('SELECT COUNT(*) as total FROM booking_customers WHERE booking_id = :booking_id');
+                    $totalStmt->execute(['booking_id' => $bookingId]);
+                    $total = $totalStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    $attendanceReports[] = [
+                        'booking_id' => $bookingId,
+                        'tour_name' => $booking['tour_name'] ?? 'N/A',
+                        'guide_name' => $booking['guide_name'] ?? 'N/A',
+                        'start_date' => $booking['start_date'] ?? null,
+                        'end_date' => $booking['end_date'] ?? null,
+                        'total_customers' => (int)($total['total'] ?? 0),
+                        'present_count' => count($presentCustomers),
+                        'absent_count' => count($absentCustomers),
+                        'present_customers' => $presentCustomers,
+                        'absent_customers' => $absentCustomers,
+                    ];
+                }
+            } catch (PDOException $e) {
+                error_log('Get attendance reports failed: ' . $e->getMessage());
+                $attendanceReports = [];
+            }
+
         } catch (PDOException $e) {
             error_log('Get pending requests failed: ' . $e->getMessage());
             $errors[] = 'Không thể tải danh sách yêu cầu.';
@@ -1142,6 +1240,7 @@ class GuideController
             'pendingNotes' => $pendingNotes,
             'pendingConfirmations' => $pendingConfirmations,
             'pendingRejections' => $pendingRejections,
+            'attendanceReports' => $attendanceReports,
             'errors' => $errors,
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
@@ -1221,17 +1320,29 @@ class GuideController
             $status = $action === 'approve' ? 'approved' : 'rejected';
             $confirmed = $action === 'approve' ? 1 : 0;
             
-            $stmt = $pdo->prepare('
-                UPDATE guide_tour_confirmations 
-                SET status = :status, 
-                    confirmed = :confirmed,
-                    confirmed_at = CASE WHEN :confirmed = 1 THEN NOW() ELSE NULL END,
-                    updated_at = NOW() 
-                WHERE id = :id
-            ');
+            // Sửa query để tránh lỗi với CASE WHEN và parameter binding
+            if ($action === 'approve') {
+                $stmt = $pdo->prepare('
+                    UPDATE guide_tour_confirmations 
+                    SET status = :status, 
+                        confirmed = 1,
+                        confirmed_at = NOW(),
+                        updated_at = NOW() 
+                    WHERE id = :id
+                ');
+            } else {
+                $stmt = $pdo->prepare('
+                    UPDATE guide_tour_confirmations 
+                    SET status = :status, 
+                        confirmed = 0,
+                        confirmed_at = NULL,
+                        updated_at = NOW() 
+                    WHERE id = :id
+                ');
+            }
+            
             $stmt->execute([
                 'status' => $status,
-                'confirmed' => $confirmed,
                 'id' => $confirmationId,
             ]);
 
@@ -1239,7 +1350,8 @@ class GuideController
             header('Location: ' . BASE_URL . 'admin/guides/requests&success=' . urlencode($message));
         } catch (PDOException $e) {
             error_log('Process confirmation failed: ' . $e->getMessage());
-            header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không thể xử lý xác nhận tour.'));
+            error_log('Confirmation ID: ' . $confirmationId . ', Action: ' . $action);
+            header('Location: ' . BASE_URL . 'admin/guides/requests&error=' . urlencode('Không thể xử lý xác nhận tour: ' . $e->getMessage()));
         }
         exit;
     }
@@ -1570,6 +1682,19 @@ class GuideController
             
             // Log kết quả
             error_log('Save attendance completed - updated count: ' . $updatedCount);
+            
+            // Kiểm tra lại dữ liệu sau khi lưu
+            $verifyStmt = $pdo->prepare('
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN attendance_status = "present" THEN 1 END) as present_count,
+                    COUNT(CASE WHEN attendance_status = "absent" THEN 1 END) as absent_count
+                FROM booking_customers 
+                WHERE booking_id = :booking_id
+            ');
+            $verifyStmt->execute(['booking_id' => $bookingId]);
+            $verifyData = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+            error_log('Verify after save - booking_id: ' . $bookingId . ', present: ' . ($verifyData['present_count'] ?? 0) . ', absent: ' . ($verifyData['absent_count'] ?? 0));
             
             if ($updatedCount > 0) {
                 header('Location: ' . BASE_URL . 'guides/attendance-detail&booking_id=' . $bookingId . '&success=' . urlencode('Đã lưu điểm danh thành công.'));

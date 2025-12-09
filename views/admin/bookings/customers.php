@@ -459,13 +459,14 @@ function submitEditCustomer(event) {
 }
 
 function deleteCustomerFromList(customerId, bookingId, customerName) {
-    if (!confirm('Bạn có chắc chắn muốn xóa khách hàng "' + customerName + '" khỏi booking này?')) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cả đoàn (tất cả khách hàng) trong booking này?\n\nLưu ý: Hành động này sẽ xóa tất cả khách hàng trong booking, không chỉ "' + customerName + '".')) {
         return;
     }
     
     const formData = new FormData();
     formData.append('customer_id', customerId);
     formData.append('booking_id', bookingId);
+    formData.append('delete_all', '1'); // Xóa cả đoàn
     
     fetch('<?= BASE_URL ?>admin/bookings/delete-customer', {
         method: 'POST',

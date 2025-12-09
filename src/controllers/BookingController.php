@@ -2101,6 +2101,7 @@ class BookingController
 
         $customerId = (int)($_POST['customer_id'] ?? 0);
         $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $deleteAll = isset($_POST['delete_all']) && $_POST['delete_all'] == '1'; // Xóa cả đoàn hay chỉ một người
 
         if ($customerId <= 0 || $bookingId <= 0) {
             echo json_encode(['success' => false, 'message' => 'ID không hợp lệ.']);
@@ -2122,11 +2123,39 @@ class BookingController
                 exit;
             }
 
-            // Xóa khách hàng
-            $deleteStmt = $pdo->prepare('DELETE FROM booking_customers WHERE id = :id AND booking_id = :booking_id');
-            $deleteStmt->execute(['id' => $customerId, 'booking_id' => $bookingId]);
+            if ($deleteAll) {
+                // Xóa tất cả khách hàng trong booking (xóa cả đoàn) - dùng cho trang danh sách
+                $countStmt = $pdo->prepare('SELECT COUNT(*) as count FROM booking_customers WHERE booking_id = :booking_id');
+                $countStmt->execute(['booking_id' => $bookingId]);
+                $countResult = $countStmt->fetch();
+                $totalCustomers = $countResult['count'] ?? 0;
 
-            echo json_encode(['success' => true, 'message' => 'Xóa khách hàng thành công.']);
+                $deleteStmt = $pdo->prepare('DELETE FROM booking_customers WHERE booking_id = :booking_id');
+                $deleteStmt->execute(['booking_id' => $bookingId]);
+                $deletedCount = $deleteStmt->rowCount();
+
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Đã xóa cả đoàn thành công (' . $deletedCount . ' khách hàng).'
+                ]);
+            } else {
+                // Xóa chỉ một khách hàng - dùng cho trang chi tiết
+                $deleteStmt = $pdo->prepare('DELETE FROM booking_customers WHERE id = :id AND booking_id = :booking_id');
+                $deleteStmt->execute(['id' => $customerId, 'booking_id' => $bookingId]);
+                $deletedCount = $deleteStmt->rowCount();
+
+                if ($deletedCount > 0) {
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => 'Đã xóa khách hàng thành công.'
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'Không thể xóa khách hàng.'
+                    ]);
+                }
+            }
         } catch (PDOException $e) {
             error_log('Delete customer failed: ' . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Không thể xóa khách hàng.']);

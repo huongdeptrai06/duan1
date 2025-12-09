@@ -311,12 +311,25 @@ ob_start();
                                         </td>
                                         <td>
                                             <?php 
-                                            $attendanceTotal = isset($conf['attendance_total']) ? (int)$conf['attendance_total'] : 0;
-                                            $attendancePresent = isset($conf['attendance_present']) ? (int)$conf['attendance_present'] : 0;
-                                            $attendanceAbsent = isset($conf['attendance_absent']) ? (int)$conf['attendance_absent'] : 0;
-                                            $bookingId = $conf['booking_id'] ?? 0;
+                                            // Lấy giá trị với fallback về 0 - xử lý cả null
+                                            $attendanceTotal = isset($conf['attendance_total']) && $conf['attendance_total'] !== null ? (int)$conf['attendance_total'] : 0;
+                                            $attendancePresent = isset($conf['attendance_present']) && $conf['attendance_present'] !== null ? (int)$conf['attendance_present'] : 0;
+                                            $attendanceAbsent = isset($conf['attendance_absent']) && $conf['attendance_absent'] !== null ? (int)$conf['attendance_absent'] : 0;
+                                            $bookingId = isset($conf['booking_id']) ? (int)$conf['booking_id'] : 0;
+                                            
+                                            // Debug: In ra tất cả giá trị để kiểm tra
+                                            error_log('=== VIEW ATTENDANCE DEBUG ===');
+                                            error_log('Booking ID: ' . $bookingId);
+                                            error_log('Total: ' . $attendanceTotal);
+                                            error_log('Present: ' . $attendancePresent);
+                                            error_log('Absent: ' . $attendanceAbsent);
+                                            error_log('Has attendance data: ' . (isset($conf['attendance_present']) ? 'YES' : 'NO'));
+                                            error_log('Raw conf keys: ' . implode(', ', array_keys($conf ?? [])));
+                                            
+                                            // Kiểm tra xem có điểm danh chưa (có người có mặt hoặc vắng mặt)
+                                            $hasAttendance = ($attendancePresent > 0 || $attendanceAbsent > 0);
                                             ?>
-                                            <?php if ($attendanceTotal > 0 || $attendancePresent > 0 || $attendanceAbsent > 0): ?>
+                                            <?php if ($hasAttendance): ?>
                                                 <div class="d-flex flex-column gap-1">
                                                     <span class="badge bg-success">
                                                         <i class="bi bi-check-circle me-1"></i>
@@ -328,7 +341,7 @@ ob_start();
                                                     </span>
                                                 </div>
                                             <?php else: ?>
-                                                <span class="text-muted" title="Booking ID: <?= $bookingId ?>">
+                                                <span class="text-muted" title="Booking ID: <?= $bookingId ?>, Total: <?= $attendanceTotal ?>, Present: <?= $attendancePresent ?>, Absent: <?= $attendanceAbsent ?>">
                                                     <i class="bi bi-dash-circle me-1"></i>
                                                     Chưa điểm danh
                                                 </span>
@@ -358,6 +371,118 @@ ob_start();
                                 </tbody>
                             </table>
                         </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Báo cáo điểm danh -->
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-clipboard-check me-2 text-primary"></i>
+                        Báo cáo điểm danh (<?= count($attendanceReports ?? []) ?>)
+                    </h5>
+                    <?php if (empty($attendanceReports ?? [])): ?>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>Chưa có báo cáo điểm danh nào.
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($attendanceReports as $report): ?>
+                            <div class="card mb-3 shadow-sm">
+                                <div class="card-header bg-primary text-white">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-calendar-event me-2"></i>
+                                                <?= htmlspecialchars($report['tour_name'] ?? 'N/A') ?>
+                                            </h6>
+                                            <small>
+                                                HDV: <?= htmlspecialchars($report['guide_name'] ?? 'N/A') ?>
+                                                <?php if ($report['start_date']): ?>
+                                                    | Khởi hành: <?= date('d/m/Y', strtotime($report['start_date'])) ?>
+                                                <?php endif; ?>
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-light text-dark me-2">
+                                                Tổng: <?= $report['total_customers'] ?? 0 ?>
+                                            </span>
+                                            <span class="badge bg-success me-2">
+                                                Có mặt: <?= $report['present_count'] ?? 0 ?>
+                                            </span>
+                                            <span class="badge bg-danger">
+                                                Vắng mặt: <?= $report['absent_count'] ?? 0 ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <!-- Danh sách người có mặt -->
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-3">
+                                                <i class="bi bi-check-circle-fill me-2"></i>
+                                                Danh sách có mặt (<?= $report['present_count'] ?? 0 ?>)
+                                            </h6>
+                                            <?php if (empty($report['present_customers'])): ?>
+                                                <p class="text-muted">Không có người có mặt</p>
+                                            <?php else: ?>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered">
+                                                        <thead class="table-success">
+                                                            <tr>
+                                                                <th>#</th>
+                                                                <th>Tên</th>
+                                                                <th>SĐT</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <?php foreach ($report['present_customers'] as $index => $customer): ?>
+                                                                <tr>
+                                                                    <td><?= $index + 1 ?></td>
+                                                                    <td><?= htmlspecialchars($customer['name'] ?? 'N/A') ?></td>
+                                                                    <td><?= htmlspecialchars($customer['phone'] ?? '-') ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- Danh sách người vắng mặt -->
+                                        <div class="col-md-6">
+                                            <h6 class="text-danger mb-3">
+                                                <i class="bi bi-x-circle-fill me-2"></i>
+                                                Danh sách vắng mặt (<?= $report['absent_count'] ?? 0 ?>)
+                                            </h6>
+                                            <?php if (empty($report['absent_customers'])): ?>
+                                                <p class="text-muted">Không có người vắng mặt</p>
+                                            <?php else: ?>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered">
+                                                        <thead class="table-danger">
+                                                            <tr>
+                                                                <th>#</th>
+                                                                <th>Tên</th>
+                                                                <th>SĐT</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <?php foreach ($report['absent_customers'] as $index => $customer): ?>
+                                                                <tr>
+                                                                    <td><?= $index + 1 ?></td>
+                                                                    <td><?= htmlspecialchars($customer['name'] ?? 'N/A') ?></td>
+                                                                    <td><?= htmlspecialchars($customer['phone'] ?? '-') ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </div>
