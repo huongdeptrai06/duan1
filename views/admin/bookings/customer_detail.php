@@ -121,9 +121,14 @@ ob_start();
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>')">
-                                                <i class="bi bi-trash me-1"></i>Xóa
-                                            </button>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="editCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['phone'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['email'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['gender'] ?? '', ENT_QUOTES) ?>')">
+                                                    <i class="bi bi-pencil me-1"></i>Sửa
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>')">
+                                                    <i class="bi bi-trash me-1"></i>Xóa
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -151,8 +156,105 @@ view('layouts.AdminLayout', [
 ]);
 ?>
 
+<!-- Modal sửa thông tin khách hàng -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1" aria-labelledby="editCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="editCustomerModalLabel">
+                    <i class="bi bi-pencil me-2"></i>Sửa thông tin khách hàng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editCustomerForm">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_customer_id" name="customer_id">
+                    <input type="hidden" name="booking_id" value="<?= $booking['id'] ?? 0 ?>">
+                    
+                    <div class="mb-3">
+                        <label for="edit_customer_name" class="form-label fw-semibold">
+                            Tên khách hàng <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="edit_customer_name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_customer_phone" class="form-label fw-semibold">
+                            Số điện thoại
+                        </label>
+                        <input type="tel" class="form-control" id="edit_customer_phone" name="phone">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_customer_email" class="form-label fw-semibold">
+                            Email
+                        </label>
+                        <input type="email" class="form-control" id="edit_customer_email" name="email">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_customer_gender" class="form-label fw-semibold">
+                            Giới tính
+                        </label>
+                        <select class="form-select" id="edit_customer_gender" name="gender">
+                            <option value="">-- Chọn giới tính --</option>
+                            <option value="male">Nam</option>
+                            <option value="female">Nữ</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save me-1"></i>Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 const bookingId = <?= $booking['id'] ?? 0 ?>;
+
+function editCustomer(customerId, name, phone, email, gender) {
+    document.getElementById('edit_customer_id').value = customerId;
+    document.getElementById('edit_customer_name').value = name;
+    document.getElementById('edit_customer_phone').value = phone || '';
+    document.getElementById('edit_customer_email').value = email || '';
+    document.getElementById('edit_customer_gender').value = gender || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editCustomerModal'));
+    modal.show();
+}
+
+// Xử lý submit form sửa khách hàng
+document.getElementById('editCustomerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('<?= BASE_URL ?>admin/bookings/update-customer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Cập nhật thông tin khách hàng thành công!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editCustomerModal'));
+            modal.hide();
+            location.reload();
+        } else {
+            alert('Lỗi: ' + (data.message || 'Không thể cập nhật thông tin khách hàng.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Lỗi khi cập nhật thông tin khách hàng. Vui lòng thử lại.');
+    });
+});
 
 function deleteCustomer(customerId, customerName) {
     if (!confirm('Bạn có chắc chắn muốn xóa khách hàng "' + customerName + '"?')) {

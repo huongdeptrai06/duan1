@@ -2038,6 +2038,7 @@ class BookingController
         }
 
         $customerId = (int)($_POST['customer_id'] ?? 0);
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
         $name = trim($_POST['name'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         $gender = $_POST['gender'] ?? null;
@@ -2045,6 +2046,11 @@ class BookingController
 
         if ($customerId <= 0) {
             echo json_encode(['success' => false, 'message' => 'ID khách hàng không hợp lệ.']);
+            exit;
+        }
+
+        if ($bookingId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Booking ID không hợp lệ.']);
             exit;
         }
 
@@ -2059,21 +2065,29 @@ class BookingController
             exit;
         }
 
+        // Đảm bảo bảng booking_customers tồn tại
+        $this->ensureBookingCustomersTable($pdo);
+
         try {
-            // Kiểm tra khách hàng có tồn tại không
-            $checkStmt = $pdo->prepare('SELECT id FROM booking_customers WHERE id = :id LIMIT 1');
-            $checkStmt->execute(['id' => $customerId]);
+            // Kiểm tra customer có tồn tại và thuộc về booking này không
+            $checkStmt = $pdo->prepare('SELECT id FROM booking_customers WHERE id = :id AND booking_id = :booking_id LIMIT 1');
+            $checkStmt->execute(['id' => $customerId, 'booking_id' => $bookingId]);
             if (!$checkStmt->fetch()) {
-                echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại.']);
+                echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại hoặc không thuộc booking này.']);
                 exit;
             }
 
             // Cập nhật thông tin khách hàng
             $stmt = $pdo->prepare('UPDATE booking_customers 
-                SET name = :name, phone = :phone, gender = :gender, email = :email, updated_at = NOW()
-                WHERE id = :id');
+                SET name = :name, 
+                    phone = :phone, 
+                    gender = :gender, 
+                    email = :email,
+                    updated_at = NOW()
+                WHERE id = :id AND booking_id = :booking_id');
             $stmt->execute([
                 'id' => $customerId,
+                'booking_id' => $bookingId,
                 'name' => $name,
                 'phone' => !empty($phone) ? $phone : null,
                 'gender' => !empty($gender) ? $gender : null,
