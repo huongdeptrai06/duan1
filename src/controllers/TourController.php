@@ -328,9 +328,31 @@ class TourController
                 }
             }
 
+            // Lấy danh sách ảnh của tour
+            $tourImages = [];
+            try {
+                // Kiểm tra xem bảng tour_images có tồn tại không
+                $tableExists = $pdo->query("SHOW TABLES LIKE 'tour_images'")->fetch();
+                if ($tableExists) {
+                    $imagesStmt = $pdo->prepare('SELECT id, image_path, display_order FROM tour_images WHERE tour_id = :tour_id ORDER BY display_order ASC, id ASC');
+                    $imagesStmt->execute(['tour_id' => $id]);
+                    $tourImages = $imagesStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Debug: Log số lượng ảnh tìm được
+                    error_log('Tour #' . $id . ' has ' . count($tourImages) . ' images');
+                } else {
+                    error_log('Table tour_images does not exist');
+                }
+            } catch (PDOException $e) {
+                // Bảng có thể chưa tồn tại
+                error_log('Get tour images failed: ' . $e->getMessage());
+                $tourImages = [];
+            }
+
             view('admin.tours.show', [
                 'title' => 'Chi tiết tour',
                 'tour' => $tour,
+                'tourImages' => $tourImages,
             ]);
         } catch (PDOException $e) {
             error_log('Show tour failed: ' . $e->getMessage());
@@ -477,10 +499,110 @@ class TourController
                 'updated_at' => $now,
             ]);
 
+            $tourId = $pdo->lastInsertId();
+
+            // Xử lý upload nhiều ảnh (nếu có)
+            if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
+                $uploadsDir = BASE_PATH . '/public/uploads/tours';
+                if (!is_dir($uploadsDir)) {
+                    if (!mkdir($uploadsDir, 0755, true)) {
+                        error_log('Cannot create uploads directory: ' . $uploadsDir);
+                    }
+                }
+
+                // Tạo bảng tour_images nếu chưa tồn tại (không dùng foreign key để tránh lỗi)
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS tour_images (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            tour_id INT NOT NULL,
+                            image_path VARCHAR(255) NOT NULL,
+                            display_order INT DEFAULT 0,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            INDEX idx_tour_id (tour_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    ");
+                } catch (PDOException $e) {
+                    // Bảng có thể đã tồn tại hoặc có lỗi khác - không chặn việc tạo tour
+                    error_log('Create tour_images table: ' . $e->getMessage());
+                }
+
+                // Chỉ xử lý upload nếu bảng đã tồn tại hoặc đã tạo thành công
+                try {
+                    $checkTable = $pdo->query("SHOW TABLES LIKE 'tour_images'");
+                    if ($checkTable->fetch()) {
+                        $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                        $imageStmt = $pdo->prepare('INSERT INTO tour_images (tour_id, image_path, display_order, created_at) VALUES (:tour_id, :image_path, :display_order, :created_at)');
+                        
+                        $displayOrder = 0;
+                        foreach ($_FILES['images']['name'] as $key => $fileName) {
+                            if (isset($_FILES['images']['error'][$key]) && $_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                                $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                                
+                                if (in_array($ext, $allowedExts)) {
+                                    $newFileName = uniqid('tour_' . $tourId . '_') . '.' . $ext;
+                                    $target = $uploadsDir . DIRECTORY_SEPARATOR . $newFileName;
+                                    
+                                    if (move_uploaded_file($_FILES['images']['tmp_name'][$key], $target)) {
+                                        $imagePath = 'uploads/tours/' . $newFileName;
+                                        try {
+                                            $imageStmt->execute([
+                                                'tour_id' => $tourId,
+                                                'image_path' => $imagePath,
+                                                'display_order' => $displayOrder++,
+                                                'created_at' => $now,
+                                            ]);
+                                        } catch (PDOException $e) {
+                                            error_log('Insert tour image failed: ' . $e->getMessage());
+                                            // Xóa file nếu không lưu được vào DB
+                                            if (file_exists($target)) {
+                                                @unlink($target);
+                                            }
+                                        }
+                                    } else {
+                                        error_log('Move uploaded file failed: ' . $target);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (PDOException $e) {
+                    error_log('Process tour images failed: ' . $e->getMessage());
+                    // Không chặn việc tạo tour nếu upload ảnh lỗi
+                }
+            }
+
             header('Location: ' . BASE_URL . 'admin/tours?success=1');
             exit;
         } catch (PDOException $e) {
             error_log('Create tour failed: ' . $e->getMessage());
+            error_log('SQL Error Code: ' . $e->getCode());
+            error_log('SQL Error Info: ' . print_r($e->errorInfo ?? [], true));
+            
+            // Hiển thị lỗi chi tiết hơn trong môi trường development
+            $errorMessage = $e->getMessage();
+            $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1']) || 
+                      strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
+                      strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') !== false;
+            
+            if (strpos($errorMessage, 'foreign key constraint') !== false) {
+                $errors[] = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại danh mục đã chọn.';
+            } elseif (strpos($errorMessage, 'Duplicate entry') !== false) {
+                $errors[] = 'Tour này đã tồn tại. Vui lòng kiểm tra lại tên tour.';
+            } elseif ($isLocal) {
+                $errors[] = 'Không thể tạo tour. Lỗi: ' . htmlspecialchars($errorMessage);
+            } else {
+                $errors[] = 'Không thể tạo tour. Vui lòng thử lại.';
+            }
+            
+            view('admin.tours.create', [
+                'title' => 'Thêm tour',
+                'errors' => $errors,
+                'formData' => $formData,
+                'categories' => $categories,
+            ]);
+        } catch (Exception $e) {
+            error_log('Create tour failed (general): ' . $e->getMessage());
             $errors[] = 'Không thể tạo tour. Vui lòng thử lại.';
             view('admin.tours.create', [
                 'title' => 'Thêm tour',
@@ -527,6 +649,18 @@ class TourController
                 if (!is_array($categories)) {
                     $categories = [];
                 }
+
+                // Lấy danh sách ảnh của tour
+                $tourImages = [];
+                try {
+                    $imagesStmt = $pdo->prepare('SELECT id, image_path, display_order FROM tour_images WHERE tour_id = :tour_id ORDER BY display_order ASC, id ASC');
+                    $imagesStmt->execute(['tour_id' => $id]);
+                    $tourImages = $imagesStmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                    // Bảng có thể chưa tồn tại
+                    error_log('Get tour images failed: ' . $e->getMessage());
+                    $tourImages = [];
+                }
             } catch (PDOException $e) {
                 error_log('Get tour for edit failed: ' . $e->getMessage());
                 $errors[] = 'Không thể tải thông tin tour.';
@@ -538,6 +672,7 @@ class TourController
             'tour' => $tour,
             'categories' => $categories,
             'errors' => $errors,
+            'tourImages' => $tourImages ?? [],
         ]);
     }
 
@@ -660,6 +795,89 @@ class TourController
                 'status' => $status,
                 'updated_at' => $now,
             ]);
+
+            // Xử lý xóa ảnh
+            if (!empty($_POST['delete_images']) && is_array($_POST['delete_images'])) {
+                try {
+                    $deleteStmt = $pdo->prepare('SELECT image_path FROM tour_images WHERE id = :id AND tour_id = :tour_id');
+                    $deleteImageStmt = $pdo->prepare('DELETE FROM tour_images WHERE id = :id AND tour_id = :tour_id');
+                    
+                    foreach ($_POST['delete_images'] as $imageId) {
+                        $imageId = (int)$imageId;
+                        if ($imageId > 0) {
+                            // Lấy đường dẫn ảnh để xóa file
+                            $deleteStmt->execute(['id' => $imageId, 'tour_id' => $id]);
+                            $imageData = $deleteStmt->fetch();
+                            
+                            if ($imageData && !empty($imageData['image_path'])) {
+                                $filePath = BASE_PATH . '/public/' . $imageData['image_path'];
+                                if (file_exists($filePath)) {
+                                    @unlink($filePath);
+                                }
+                            }
+                            
+                            // Xóa khỏi database
+                            $deleteImageStmt->execute(['id' => $imageId, 'tour_id' => $id]);
+                        }
+                    }
+                } catch (PDOException $e) {
+                    error_log('Delete tour images failed: ' . $e->getMessage());
+                }
+            }
+
+            // Xử lý thêm ảnh mới
+            if (!empty($_FILES['images']['name'][0])) {
+                $uploadsDir = BASE_PATH . '/public/uploads/tours';
+                if (!is_dir($uploadsDir)) {
+                    mkdir($uploadsDir, 0755, true);
+                }
+
+                // Đảm bảo bảng tour_images tồn tại (không dùng foreign key để tránh lỗi)
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS tour_images (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            tour_id INT NOT NULL,
+                            image_path VARCHAR(255) NOT NULL,
+                            display_order INT DEFAULT 0,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            INDEX idx_tour_id (tour_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    ");
+                } catch (PDOException $e) {
+                    error_log('Create tour_images table: ' . $e->getMessage());
+                }
+
+                // Lấy display_order cao nhất hiện tại
+                $maxOrderStmt = $pdo->prepare('SELECT MAX(display_order) as max_order FROM tour_images WHERE tour_id = :tour_id');
+                $maxOrderStmt->execute(['tour_id' => $id]);
+                $maxOrderResult = $maxOrderStmt->fetch();
+                $displayOrder = ($maxOrderResult && $maxOrderResult['max_order'] !== null) ? (int)$maxOrderResult['max_order'] + 1 : 0;
+
+                $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                $imageStmt = $pdo->prepare('INSERT INTO tour_images (tour_id, image_path, display_order, created_at) VALUES (:tour_id, :image_path, :display_order, :created_at)');
+                
+                foreach ($_FILES['images']['name'] as $key => $fileName) {
+                    if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                        
+                        if (in_array($ext, $allowedExts)) {
+                            $newFileName = uniqid('tour_' . $id . '_') . '.' . $ext;
+                            $target = $uploadsDir . DIRECTORY_SEPARATOR . $newFileName;
+                            
+                            if (move_uploaded_file($_FILES['images']['tmp_name'][$key], $target)) {
+                                $imagePath = 'uploads/tours/' . $newFileName;
+                                $imageStmt->execute([
+                                    'tour_id' => $id,
+                                    'image_path' => $imagePath,
+                                    'display_order' => $displayOrder++,
+                                    'created_at' => $now,
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
 
             header('Location: ' . BASE_URL . 'admin/tours?success=updated');
             exit;

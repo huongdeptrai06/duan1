@@ -97,7 +97,11 @@ ob_start();
                                     <i class="bi bi-calendar-check me-1 text-primary"></i>Ngày kết thúc
                                 </label>
                                 <input type="date" class="form-control form-control-lg" id="end_date" name="end_date" 
-                                       value="<?= htmlspecialchars($booking['end_date'] ?? '') ?>">
+                                       value="<?= htmlspecialchars($booking['end_date'] ?? '') ?>"
+                                       min="<?= date('Y-m-d') ?>">
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Chỉ có thể chọn ngày trong tương lai và không được trước ngày khởi hành
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -171,6 +175,55 @@ ob_start();
 <?php
 $content = ob_get_clean();
 
+]);
+?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (startDateInput && endDateInput) {
+        // Hàm cập nhật min của end_date
+        function updateEndDateMin() {
+            const startDate = startDateInput.value;
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Nếu đã chọn ngày khởi hành, min của end_date là ngày khởi hành
+            // Nếu chưa chọn, min của end_date là hôm nay
+            if (startDate) {
+                endDateInput.min = startDate;
+            } else {
+                endDateInput.min = today;
+            }
+            
+            // Nếu end_date hiện tại nhỏ hơn min mới, xóa giá trị
+            if (endDateInput.value && endDateInput.value < endDateInput.min) {
+                endDateInput.value = '';
+            }
+        }
+        
+        // Cập nhật khi start_date thay đổi
+        startDateInput.addEventListener('change', updateEndDateMin);
+        
+        // Cập nhật khi trang load (nếu đã có giá trị start_date)
+        updateEndDateMin();
+        
+        // Kiểm tra khi end_date thay đổi
+        endDateInput.addEventListener('change', function() {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            
+            if (startDate && endDate && endDate < startDate) {
+                alert('Ngày kết thúc không được trước ngày khởi hành!');
+                endDateInput.value = startDate;
+            }
+        });
+    }
+});
+</script>
+
+<?php
 view('layouts.AdminLayout', [
     'title' => $title ?? 'Chỉnh sửa booking',
     'pageTitle' => 'Chỉnh sửa booking',

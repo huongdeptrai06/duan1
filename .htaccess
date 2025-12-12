@@ -4,6 +4,12 @@ RewriteEngine On
 # Cập nhật nếu dự án chạy ở path khác
 RewriteBase /duan-1/
 
+# Cho phép truy cập trực tiếp vào các file và thư mục thật (bao gồm public, uploads)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d [OR]
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|css|js|ico|svg|woff|woff2|ttf|eot)$ [NC]
+RewriteRule ^ - [L]
+
 # Route trang chủ
 RewriteRule ^$ index.php [L,QSA]
 

@@ -22,7 +22,7 @@ $categories = $categories ?? [];
                     </div>
                 <?php endif; ?>
 
-                <form action="<?= BASE_URL ?>admin/tours/update" method="post" novalidate>
+                <form action="<?= BASE_URL ?>admin/tours/update" method="post" enctype="multipart/form-data" novalidate>
                     <input type="hidden" name="id" value="<?= htmlspecialchars($tour['id'] ?? '') ?>">
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -127,6 +127,49 @@ $categories = $categories ?? [];
                                    value="<?= htmlspecialchars($tour['suppliers'] ?? '') ?>"
                                    placeholder="Ví dụ: Công ty Du lịch ABC">
                         </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-images me-1 text-primary"></i>Hình ảnh tour hiện có
+                            </label>
+                            <div id="existingImages" class="d-flex flex-wrap gap-3 mb-3">
+                                <?php 
+                                $tourImages = $tourImages ?? [];
+                                if (!empty($tourImages) && is_array($tourImages)): 
+                                    foreach ($tourImages as $img): 
+                                ?>
+                                    <div class="position-relative existing-image-item" data-image-id="<?= htmlspecialchars($img['id']) ?>">
+                                        <img src="<?= BASE_URL . htmlspecialchars($img['image_path']) ?>" 
+                                             class="img-thumbnail" 
+                                             style="width: 150px; height: 150px; object-fit: cover;"
+                                             alt="Tour image">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-existing-image"
+                                                data-image-id="<?= htmlspecialchars($img['id']) ?>">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                        <input type="hidden" name="keep_images[]" value="<?= htmlspecialchars($img['id']) ?>">
+                                    </div>
+                                <?php 
+                                    endforeach;
+                                endif; 
+                                ?>
+                            </div>
+                            
+                            <label for="tourImages" class="form-label fw-semibold">
+                                <i class="bi bi-plus-circle me-1 text-primary"></i>Thêm ảnh mới
+                            </label>
+                            <input type="file"
+                                   class="form-control form-control-lg"
+                                   id="tourImages"
+                                   name="images[]"
+                                   accept="image/*"
+                                   multiple>
+                            <small class="text-muted d-block mt-2">
+                                <i class="bi bi-info-circle me-1"></i>Bạn có thể chọn nhiều ảnh cùng lúc (JPG, PNG, GIF, WEBP)
+                            </small>
+                            <div id="imagePreview" class="mt-3 d-flex flex-wrap gap-3"></div>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
@@ -157,7 +200,80 @@ view('layouts.AdminLayout', [
 ]);
 ?>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('tourImages');
+    const previewContainer = document.getElementById('imagePreview');
+    const existingImagesContainer = document.getElementById('existingImages');
 
+    // Xử lý xóa ảnh hiện có
+    if (existingImagesContainer) {
+        existingImagesContainer.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-existing-image')) {
+                const btn = e.target.closest('.remove-existing-image');
+                const imageId = btn.getAttribute('data-image-id');
+                const imageItem = btn.closest('.existing-image-item');
+                
+                if (confirm('Bạn có chắc muốn xóa ảnh này?')) {
+                    // Xóa khỏi DOM
+                    imageItem.remove();
+                    // Thêm vào danh sách ảnh cần xóa
+                    const deleteInput = document.createElement('input');
+                    deleteInput.type = 'hidden';
+                    deleteInput.name = 'delete_images[]';
+                    deleteInput.value = imageId;
+                    document.querySelector('form').appendChild(deleteInput);
+                }
+            }
+        });
+    }
 
-
+    // Xử lý preview ảnh mới
+    if (fileInput && previewContainer) {
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                Array.from(files).forEach((file, index) => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const div = document.createElement('div');
+                            div.className = 'position-relative';
+                            div.style.width = '150px';
+                            div.style.height = '150px';
+                            
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'img-thumbnail w-100 h-100';
+                            img.style.objectFit = 'cover';
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 m-1';
+                            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                            removeBtn.style.zIndex = '10';
+                            removeBtn.onclick = function() {
+                                div.remove();
+                                // Tạo DataTransfer để xóa file khỏi input
+                                const dt = new DataTransfer();
+                                Array.from(fileInput.files).forEach((f, i) => {
+                                    if (i !== index) {
+                                        dt.items.add(f);
+                                    }
+                                });
+                                fileInput.files = dt.files;
+                            };
+                            
+                            div.appendChild(img);
+                            div.appendChild(removeBtn);
+                            previewContainer.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+    }
+});
+</script>
 

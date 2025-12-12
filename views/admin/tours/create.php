@@ -21,7 +21,7 @@ $formData = $formData ?? [];
                     </div>
                 <?php endif; ?>
 
-                <form action="<?= BASE_URL ?>admin/tours/store" method="post" novalidate>
+                <form action="<?= BASE_URL ?>admin/tours/store" method="post" enctype="multipart/form-data" novalidate>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="tourName" class="form-label fw-semibold">
@@ -125,6 +125,22 @@ $formData = $formData ?? [];
                                    value="<?= htmlspecialchars($formData['suppliers'] ?? '') ?>"
                                    placeholder="Ví dụ: Công ty Du lịch ABC">
                         </div>
+
+                        <div class="col-12">
+                            <label for="tourImages" class="form-label fw-semibold">
+                                <i class="bi bi-images me-1 text-primary"></i>Hình ảnh tour
+                            </label>
+                            <input type="file"
+                                   class="form-control form-control-lg"
+                                   id="tourImages"
+                                   name="images[]"
+                                   accept="image/*"
+                                   multiple>
+                            <small class="text-muted d-block mt-2">
+                                <i class="bi bi-info-circle me-1"></i>Bạn có thể chọn nhiều ảnh cùng lúc (JPG, PNG, GIF, WEBP)
+                            </small>
+                            <div id="imagePreview" class="mt-3 d-flex flex-wrap gap-3"></div>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
@@ -155,8 +171,59 @@ view('layouts.AdminLayout', [
 ]);
 ?>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('tourImages');
+    const previewContainer = document.getElementById('imagePreview');
 
-
-
+    if (fileInput && previewContainer) {
+        fileInput.addEventListener('change', function(e) {
+            previewContainer.innerHTML = '';
+            
+            const files = e.target.files;
+            if (files.length > 0) {
+                Array.from(files).forEach((file, index) => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const div = document.createElement('div');
+                            div.className = 'position-relative';
+                            div.style.width = '150px';
+                            div.style.height = '150px';
+                            
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'img-thumbnail w-100 h-100';
+                            img.style.objectFit = 'cover';
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 m-1';
+                            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                            removeBtn.style.zIndex = '10';
+                            removeBtn.onclick = function() {
+                                div.remove();
+                                // Tạo DataTransfer để xóa file khỏi input
+                                const dt = new DataTransfer();
+                                Array.from(fileInput.files).forEach((f, i) => {
+                                    if (i !== index) {
+                                        dt.items.add(f);
+                                    }
+                                });
+                                fileInput.files = dt.files;
+                            };
+                            
+                            div.appendChild(img);
+                            div.appendChild(removeBtn);
+                            previewContainer.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+    }
+});
+</script>
 
 
