@@ -125,9 +125,9 @@ ob_start();
                                                 <button type="button" class="btn btn-sm btn-warning" onclick="editCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['phone'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['email'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($customer['gender'] ?? '', ENT_QUOTES) ?>')">
                                                     <i class="bi bi-pencil me-1"></i>Sửa
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>')">
-                                                    <i class="bi bi-trash me-1"></i>Xóa
-                                                </button>
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteCustomer(<?= $customer['id'] ?>, '<?= htmlspecialchars($customer['name'], ENT_QUOTES) ?>')">
+                                                <i class="bi bi-trash me-1"></i>Xóa
+                                            </button>
                                             </div>
                                         </td>
                                     </tr>

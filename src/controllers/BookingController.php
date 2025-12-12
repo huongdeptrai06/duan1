@@ -1203,6 +1203,7 @@ class BookingController
         $currentUser = getCurrentUser();
 
         $tour_id = !empty($_POST['tour_id']) ? (int)$_POST['tour_id'] : null;
+        $representative_customer_id = !empty($_POST['representative_customer_id']) ? (int)$_POST['representative_customer_id'] : null;
         $assigned_guide_id = !empty($_POST['assigned_guide_id']) ? (int)$_POST['assigned_guide_id'] : null;
         // Không cho phép thay đổi status khi chỉnh sửa, chỉ giữ nguyên status hiện tại
         $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
@@ -1248,9 +1249,11 @@ class BookingController
             $errors[] = 'Vui lòng chọn tour.';
         }
         
-        if (!$representative_customer_id) {
-            $errors[] = 'Vui lòng chọn người đại diện cho tour.';
-        }
+        // Khi update booking, representative_customer_id không bắt buộc (có thể giữ nguyên người đại diện cũ)
+        // Chỉ validate nếu có giá trị được gửi lên và cần thay đổi
+        // if (!$representative_customer_id) {
+        //     $errors[] = 'Vui lòng chọn người đại diện cho tour.';
+        // }
 
         if (!$start_date) {
             $errors[] = 'Vui lòng chọn ngày khởi hành.';
