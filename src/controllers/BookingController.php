@@ -226,6 +226,9 @@ class BookingController
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
             try {
+                // Đảm bảo bảng booking_customers tồn tại
+                $this->ensureBookingCustomersTable($pdo);
+                
                 // Kiểm tra xem bảng guides có tồn tại không
                 $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
                 
@@ -235,7 +238,12 @@ class BookingController
                              t.name as tour_name, 
                              u.name as created_by_name,
                              g.full_name as guide_name,
-                             ts.name as status_name
+                             ts.name as status_name,
+                             (SELECT bc.name 
+                              FROM booking_customers bc
+                              WHERE bc.booking_id = b.id
+                              ORDER BY bc.id ASC
+                              LIMIT 1) as representative_name
                              FROM bookings b
                              LEFT JOIN tours t ON b.tour_id = t.id
                              LEFT JOIN users u ON b.created_by = u.id
@@ -247,7 +255,12 @@ class BookingController
                              t.name as tour_name, 
                              u.name as created_by_name,
                              u_guide.name as guide_name,
-                             ts.name as status_name
+                             ts.name as status_name,
+                             (SELECT bc.name 
+                              FROM booking_customers bc
+                              WHERE bc.booking_id = b.id
+                              ORDER BY bc.id ASC
+                              LIMIT 1) as representative_name
                              FROM bookings b
                              LEFT JOIN tours t ON b.tour_id = t.id
                              LEFT JOIN users u ON b.created_by = u.id
@@ -364,15 +377,17 @@ class BookingController
                 $stmt = $pdo->query('SELECT id, name FROM tours WHERE status = 1 ORDER BY name');
                 $tours = $stmt->fetchAll();
                 
-                // Lấy danh sách chỉ người đại diện (khách hàng đầu tiên của mỗi booking)
+                // Lấy danh sách tất cả người đại diện (khách hàng đầu tiên của mỗi booking)
                 $custStmt = $pdo->query('
-                    SELECT bc.id, bc.name, bc.phone, bc.email
+                    SELECT bc.id, bc.name, bc.phone, bc.email, t.name as tour_name
                     FROM booking_customers bc
                     INNER JOIN (
                         SELECT booking_id, MIN(id) as min_id
                         FROM booking_customers
                         GROUP BY booking_id
                     ) first_customer ON bc.booking_id = first_customer.booking_id AND bc.id = first_customer.min_id
+                    LEFT JOIN bookings b ON bc.booking_id = b.id
+                    LEFT JOIN tours t ON b.tour_id = t.id
                     ORDER BY bc.name ASC
                 ');
                 $customers = $custStmt->fetchAll();
@@ -1641,13 +1656,14 @@ class BookingController
             $this->ensureBookingCustomersTable($pdo);
         }
 
+        $representatives = [];
         $bookings = [];
 
         if ($pdo === null) {
             $errors[] = 'Không thể kết nối cơ sở dữ liệu.';
         } else {
             try {
-                // Lấy người đại diện của mỗi booking (khách hàng đầu tiên - id nhỏ nhất)
+                // Chỉ lấy người đại diện (khách hàng đầu tiên của mỗi booking)
                 $stmt = $pdo->query('
                     SELECT 
                         bc.id,
@@ -1672,23 +1688,41 @@ class BookingController
                 ');
                 $customers = $stmt->fetchAll();
                 
-                // Lấy danh sách tất cả bookings để hiển thị trong dropdown
-                $bookingStmt = $pdo->query('
+                // Lấy danh sách người đại diện để hiển thị trong dropdown import
+                $representativesStmt = $pdo->query('
+                    SELECT bc.id, bc.name, bc.phone, bc.email, t.name as tour_name
+                    FROM booking_customers bc
+                    INNER JOIN (
+                        SELECT booking_id, MIN(id) as min_id
+                        FROM booking_customers
+                        GROUP BY booking_id
+                    ) first_customer ON bc.booking_id = first_customer.booking_id AND bc.id = first_customer.min_id
+                    LEFT JOIN bookings b ON bc.booking_id = b.id
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    ORDER BY bc.name ASC
+                ');
+                $representatives = $representativesStmt->fetchAll();
+                
+                // Lấy danh sách bookings để hiển thị trong dropdown thêm khách hàng
+                $bookingsStmt = $pdo->query('
                     SELECT b.id, b.start_date, t.name as tour_name
                     FROM bookings b
                     LEFT JOIN tours t ON b.tour_id = t.id
                     ORDER BY b.created_at DESC
                 ');
-                $bookings = $bookingStmt->fetchAll();
+                $bookings = $bookingsStmt->fetchAll();
             } catch (PDOException $e) {
                 error_log('Customer list failed: ' . $e->getMessage());
                 $errors[] = 'Không thể tải danh sách khách hàng.';
+                $representatives = [];
+                $bookings = [];
             }
         }
 
         view('admin.bookings.customers', [
             'title' => 'Danh sách khách hàng',
             'customers' => $customers,
+            'representatives' => $representatives,
             'bookings' => $bookings,
             'errors' => $errors,
         ]);
@@ -1773,7 +1807,7 @@ class BookingController
         $email = trim($_POST['email'] ?? '');
 
         if ($bookingId <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Booking ID không hợp lệ.']);
+            echo json_encode(['success' => false, 'message' => 'Vui lòng chọn booking.']);
             exit;
         }
 
@@ -1833,10 +1867,7 @@ class BookingController
         }
 
         $bookingId = (int)($_POST['booking_id'] ?? 0);
-        if ($bookingId <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Booking ID không hợp lệ.']);
-            exit;
-        }
+        $representativeCustomerId = (int)($_POST['representative_customer_id'] ?? 0);
 
         $file = $_FILES['excel_file'];
         $customers = [];
@@ -1855,17 +1886,73 @@ class BookingController
         // Đảm bảo bảng booking_customers tồn tại
         $this->ensureBookingCustomersTable($pdo);
 
-        // Kiểm tra booking có tồn tại không
-        try {
-            $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
-            $checkStmt->execute(['id' => $bookingId]);
-            if (!$checkStmt->fetch()) {
-                echo json_encode(['success' => false, 'message' => 'Booking không tồn tại.']);
+        $currentUser = getCurrentUser();
+        if (!$currentUser || !$currentUser->id) {
+            echo json_encode(['success' => false, 'message' => 'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.']);
+            exit;
+        }
+
+        // Nếu có chọn người đại diện, lấy booking_id từ người đại diện đó
+        if ($representativeCustomerId > 0) {
+            try {
+                // Lấy booking_id từ người đại diện
+                $repStmt = $pdo->prepare('
+                    SELECT booking_id 
+                    FROM booking_customers 
+                    WHERE id = :id LIMIT 1
+                ');
+                $repStmt->execute(['id' => $representativeCustomerId]);
+                $representative = $repStmt->fetch();
+
+                if (!$representative) {
+                    echo json_encode(['success' => false, 'message' => 'Người đại diện không tồn tại.']);
+                    exit;
+                }
+
+                $bookingId = (int)$representative['booking_id'];
+                
+                if ($bookingId <= 0) {
+                    echo json_encode(['success' => false, 'message' => 'Người đại diện chưa có booking.']);
+                    exit;
+                }
+
+                // Kiểm tra booking có tồn tại không
+                $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
+                $checkStmt->execute(['id' => $bookingId]);
+                if (!$checkStmt->fetch()) {
+                    echo json_encode(['success' => false, 'message' => 'Booking của người đại diện không tồn tại.']);
+                    exit;
+                }
+            } catch (PDOException $e) {
+                error_log('Get booking from representative failed: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Không thể lấy thông tin booking từ người đại diện.']);
                 exit;
             }
-        } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Lỗi khi kiểm tra booking.']);
-            exit;
+        } else {
+            // Nếu không có người đại diện, lấy booking mới nhất
+            try {
+                if ($bookingId <= 0) {
+                    $latestBookingStmt = $pdo->query('SELECT id FROM bookings ORDER BY created_at DESC LIMIT 1');
+                    $latestBooking = $latestBookingStmt->fetch();
+                    if ($latestBooking) {
+                        $bookingId = (int)$latestBooking['id'];
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Chưa có booking nào. Vui lòng chọn người đại diện để tạo booking mới.']);
+                        exit;
+                    }
+                } else {
+                    // Kiểm tra booking có tồn tại không
+                    $checkStmt = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
+                    $checkStmt->execute(['id' => $bookingId]);
+                    if (!$checkStmt->fetch()) {
+                        echo json_encode(['success' => false, 'message' => 'Booking không tồn tại.']);
+                        exit;
+                    }
+                }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'message' => 'Lỗi khi kiểm tra booking.']);
+                exit;
+            }
         }
 
         $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -1954,6 +2041,53 @@ class BookingController
             } else {
                 echo json_encode(['success' => false, 'message' => 'Định dạng file không được hỗ trợ. Vui lòng sử dụng file .xlsx, .xls hoặc .csv']);
                 exit;
+            }
+
+            // Nếu có chọn người đại diện, đảm bảo người đại diện có trong danh sách khách hàng của booking
+            if ($representativeCustomerId > 0) {
+                try {
+                    // Kiểm tra xem người đại diện đã có trong booking này chưa
+                    $checkRepStmt = $pdo->prepare('
+                        SELECT id FROM booking_customers 
+                        WHERE id = :id AND booking_id = :booking_id 
+                        LIMIT 1
+                    ');
+                    $checkRepStmt->execute([
+                        'id' => $representativeCustomerId,
+                        'booking_id' => $bookingId
+                    ]);
+                    $existingRep = $checkRepStmt->fetch();
+                    
+                    // Nếu người đại diện chưa có trong booking này, thêm vào
+                    if (!$existingRep) {
+                        // Lấy thông tin người đại diện
+                        $repInfoStmt = $pdo->prepare('
+                            SELECT name, phone, gender, email 
+                            FROM booking_customers 
+                            WHERE id = :id LIMIT 1
+                        ');
+                        $repInfoStmt->execute(['id' => $representativeCustomerId]);
+                        $repInfo = $repInfoStmt->fetch();
+                        
+                        if ($repInfo) {
+                            // Thêm người đại diện vào booking (với id cũ để giữ nguyên thông tin)
+                            $addRepStmt = $pdo->prepare('INSERT INTO booking_customers 
+                                (booking_id, name, phone, gender, email) 
+                                VALUES (:booking_id, :name, :phone, :gender, :email)');
+                            
+                            $addRepStmt->execute([
+                                'booking_id' => $bookingId,
+                                'name' => $repInfo['name'],
+                                'phone' => $repInfo['phone'] ?? null,
+                                'gender' => $repInfo['gender'] ?? null,
+                                'email' => $repInfo['email'] ?? null,
+                            ]);
+                        }
+                    }
+                } catch (PDOException $e) {
+                    error_log('Failed to add representative to booking: ' . $e->getMessage());
+                    // Tiếp tục import khách hàng khác dù có lỗi
+                }
             }
 
             // Lưu khách hàng vào database

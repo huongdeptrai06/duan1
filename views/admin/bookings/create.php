@@ -64,12 +64,17 @@ $formData = $formData ?? [];
                                             <?php if (!empty($customer['phone'])): ?>
                                                 - <?= htmlspecialchars($customer['phone']) ?>
                                             <?php endif; ?>
+                                            <?php if (!empty($customer['tour_name'])): ?>
+                                                (<?= htmlspecialchars($customer['tour_name']) ?>)
+                                            <?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="" disabled>Chưa có người đại diện nào</option>
                                 <?php endif; ?>
                             </select>
                             <small class="form-text text-muted">
-                                <i class="bi bi-info-circle me-1"></i>Chọn từ danh sách khách hàng có sẵn
+                                <i class="bi bi-info-circle me-1"></i>Chọn từ danh sách người đại diện có sẵn
                             </small>
                         </div>
 

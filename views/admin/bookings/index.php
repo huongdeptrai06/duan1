@@ -89,7 +89,7 @@ ob_start();
                                                 <?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?>
                                             </a>
                                         </td>
-                                        <td><?= htmlspecialchars($booking['created_by_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($booking['representative_name'] ?? $booking['created_by_name'] ?? 'N/A') ?></td>
                                         <td>
                                             <?php if ($booking['guide_name']): ?>
                                                 <?= htmlspecialchars($booking['guide_name']) ?>

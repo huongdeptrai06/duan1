@@ -241,20 +241,26 @@ ob_start();
             <form id="importExcelForm" onsubmit="submitImportExcel(event)">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Chọn Booking <span class="text-danger">*</span></label>
-                        <select class="form-select" name="booking_id" required>
-                            <option value="">-- Chọn booking --</option>
-                            <?php if (!empty($bookings)): ?>
-                                <?php foreach ($bookings as $booking): ?>
-                                    <option value="<?= $booking['id'] ?>">
-                                        #<?= $booking['id'] ?> - <?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?>
-                                        <?php if (!empty($booking['start_date'])): ?>
-                                            (<?= date('d/m/Y', strtotime($booking['start_date'])) ?>)
+                        <label class="form-label">Chọn người đại diện <span class="text-danger">*</span></label>
+                        <select class="form-select" name="representative_customer_id" id="representativeSelect" required>
+                            <option value="">-- Chọn người đại diện --</option>
+                            <?php if (!empty($representatives)): ?>
+                                <?php foreach ($representatives as $rep): ?>
+                                    <option value="<?= $rep['id'] ?>">
+                                        <?= htmlspecialchars($rep['name']) ?>
+                                        <?php if (!empty($rep['phone'])): ?>
+                                            - <?= htmlspecialchars($rep['phone']) ?>
+                                        <?php endif; ?>
+                                        <?php if (!empty($rep['tour_name'])): ?>
+                                            (<?= htmlspecialchars($rep['tour_name']) ?>)
                                         <?php endif; ?>
                                     </option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>Chọn người đại diện để import khách hàng vào booking của người đại diện đó
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Chọn file Excel <span class="text-danger">*</span></label>
@@ -459,14 +465,14 @@ function submitEditCustomer(event) {
 }
 
 function deleteCustomerFromList(customerId, bookingId, customerName) {
-    if (!confirm('Bạn có chắc chắn muốn xóa cả đoàn (tất cả khách hàng) trong booking này?\n\nLưu ý: Hành động này sẽ xóa tất cả khách hàng trong booking, không chỉ "' + customerName + '".')) {
+    if (!confirm('Bạn có chắc chắn muốn xóa khách hàng "' + customerName + '"?')) {
         return;
     }
     
     const formData = new FormData();
     formData.append('customer_id', customerId);
     formData.append('booking_id', bookingId);
-    formData.append('delete_all', '1'); // Xóa cả đoàn
+    // Không gửi delete_all để chỉ xóa khách hàng được chọn
     
     fetch('<?= BASE_URL ?>admin/bookings/delete-customer', {
         method: 'POST',
