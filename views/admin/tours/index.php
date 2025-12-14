@@ -108,20 +108,36 @@ ob_start();
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
-                                            <a href="<?= BASE_URL ?>admin/tours/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info" title="Xem chi tiết">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <?php if (isAdmin()): ?>
-                                            <a href="<?= BASE_URL ?>admin/tours/edit&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </a>
-                                            <form action="<?= BASE_URL ?>admin/tours/delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tour này?');">
-                                                <input type="hidden" name="id" value="<?= $tour['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                            <?php endif; ?>
+                                            <div class="d-flex gap-1 justify-content-end">
+                                                <a href="<?= BASE_URL ?>admin/tours/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info" title="Xem chi tiết">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <?php if ($isGuide && !empty($tour['booking_id'])): 
+                                                    $isCompleted = stripos($tour['booking_status_name'] ?? '', 'Hoàn thành') !== false || (int)($tour['booking_status_id'] ?? 0) === 4;
+                                                    $tourBookingId = $tour['booking_id'];
+                                                    $isTourConfirmed = isset($confirmationsMap[$tourBookingId]) && $confirmationsMap[$tourBookingId]['confirmed'] == 1;
+                                                    if (!$isCompleted && $isTourConfirmed):
+                                                ?>
+                                                <form action="<?= BASE_URL ?>guides/complete-tour" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn đánh dấu tour này là hoàn thành?');">
+                                                    <input type="hidden" name="booking_id" value="<?= $tour['booking_id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Hoàn thành tour">
+                                                        <i class="bi bi-check-circle-fill"></i>
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                                <?php endif; ?>
+                                                <?php if (isAdmin()): ?>
+                                                <a href="<?= BASE_URL ?>admin/tours/edit&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </a>
+                                                <form action="<?= BASE_URL ?>admin/tours/delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tour này?');">
+                                                    <input type="hidden" name="id" value="<?= $tour['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -306,6 +322,7 @@ ob_start();
                                 $isConfirmed = isset($confirmationsMap[$booking['id']]) && $confirmationsMap[$booking['id']]['confirmed'] == 1;
                                 $rejection = $rejectionsMap[$booking['id']] ?? null;
                                 $hasPendingRejection = $rejection && $rejection['status'] === 'pending';
+                                $isCompleted = stripos($booking['status_name'] ?? '', 'Hoàn thành') !== false || (int)($booking['status_id'] ?? 0) === 4;
                             ?>
                             <tr>
                                 <td>
@@ -353,24 +370,38 @@ ob_start();
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <?php if (!$hasPendingRejection): ?>
-                                        <form action="<?= BASE_URL ?>guides/confirm-tour" method="post" class="d-inline">
+                                    <div class="d-flex flex-column gap-1">
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <?php if (!$hasPendingRejection): ?>
+                                                <?php if (!$isConfirmed): ?>
+                                                <form action="<?= BASE_URL ?>guides/confirm-tour" method="post" class="d-inline">
+                                                    <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
+                                                    <input type="hidden" name="confirmed" value="1">
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="bi bi-check-circle me-1"></i>Xác nhận
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal<?= $booking['id'] ?>">
+                                                    <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                </button>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-clock me-1"></i>Đã gửi yêu cầu từ chối
+                                            </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php if (!$isCompleted && $isConfirmed): ?>
+                                        <form action="<?= BASE_URL ?>guides/complete-tour" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn đánh dấu tour này là hoàn thành?');">
                                             <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
-                                            <input type="hidden" name="confirmed" value="<?= $isConfirmed ? '0' : '1' ?>">
-                                            <button type="submit" class="btn btn-sm <?= $isConfirmed ? 'btn-outline-danger' : 'btn-success' ?>">
-                                                <i class="bi <?= $isConfirmed ? 'bi-x-circle' : 'bi-check-circle' ?> me-1"></i>
-                                                <?= $isConfirmed ? 'Hủy xác nhận' : 'Xác nhận' ?>
+                                            <button type="submit" class="btn btn-sm btn-success w-100">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Hoàn thành tour
                                             </button>
                                         </form>
-                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal<?= $booking['id'] ?>">
-                                            <i class="bi bi-x-circle me-1"></i>Từ chối
-                                        </button>
-                                        <?php else: ?>
-                                        <span class="badge bg-warning">
-                                            <i class="bi bi-clock me-1"></i>Đã gửi yêu cầu từ chối
-                                        </span>
                                         <?php endif; ?>
+                                        <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-info w-100">
+                                            <i class="bi bi-eye me-1"></i>Chi tiết
+                                        </a>
                                     </div>
                                     
                                     <!-- Modal từ chối tour -->
@@ -422,6 +453,89 @@ ob_start();
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Tour đã hoàn thành -->
+        <?php if (!empty($completedBookings)): ?>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-check-circle-fill me-2"></i>Tour đã hoàn thành
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tour</th>
+                                <th>Khách hàng</th>
+                                <th>Ngày khởi hành</th>
+                                <th>Ngày kết thúc</th>
+                                <th>Trạng thái</th>
+                                <th>Xác nhận</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($completedBookings as $booking): 
+                                $isConfirmed = isset($confirmationsMap[$booking['id']]) && $confirmationsMap[$booking['id']]['confirmed'] == 1;
+                            ?>
+                            <tr>
+                                <td>
+                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" 
+                                       class="text-decoration-none tour-name-link" 
+                                       style="color: inherit;">
+                                        <strong><?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?></strong>
+                                    </a>
+                                    <?php if ($booking['tour_price']): ?>
+                                        <br><small class="text-muted"><?= number_format($booking['tour_price'], 0, ',', '.') ?> ₫</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($booking['customer_name'] ?? 'N/A') ?></td>
+                                <td>
+                                    <?php if ($booking['start_date']): ?>
+                                        <?= date('d/m/Y', strtotime($booking['start_date'])) ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Chưa có</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($booking['end_date']): ?>
+                                        <?= date('d/m/Y', strtotime($booking['end_date'])) ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Chưa có</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i><?= htmlspecialchars($booking['status_name'] ?? 'Hoàn thành') ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php if ($isConfirmed): ?>
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>Đã xác nhận
+                                        </span>
+                                        <?php if (isset($confirmationsMap[$booking['id']]['confirmed_at'])): ?>
+                                            <br><small class="text-muted"><?= date('d/m/Y H:i', strtotime($confirmationsMap[$booking['id']]['confirmed_at'])) ?></small>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning">Chưa xác nhận</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-eye me-1"></i>Chi tiết
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

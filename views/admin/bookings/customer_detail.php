@@ -28,6 +28,9 @@ ob_start();
                             <i class="bi bi-arrow-left me-1"></i> Quay lại
                         </a>
                         <?php if ($booking): ?>
+                            <button type="button" class="btn btn-success" onclick="showAddCustomerModal()">
+                                <i class="bi bi-plus-circle me-1"></i> Thêm khách hàng
+                            </button>
                             <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $booking['id'] ?>" class="btn btn-outline-info">
                                 <i class="bi bi-calendar-check me-1"></i> Xem booking
                             </a>
@@ -156,6 +159,64 @@ view('layouts.AdminLayout', [
 ]);
 ?>
 
+<!-- Modal thêm khách hàng -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="addCustomerModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Thêm khách hàng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addCustomerForm">
+                <div class="modal-body">
+                    <input type="hidden" name="booking_id" value="<?= $booking['id'] ?? 0 ?>">
+                    
+                    <div class="mb-3">
+                        <label for="add_customer_name" class="form-label fw-semibold">
+                            Tên khách hàng <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="add_customer_name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="add_customer_phone" class="form-label fw-semibold">
+                            Số điện thoại
+                        </label>
+                        <input type="tel" class="form-control" id="add_customer_phone" name="phone">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="add_customer_email" class="form-label fw-semibold">
+                            Email
+                        </label>
+                        <input type="email" class="form-control" id="add_customer_email" name="email">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="add_customer_gender" class="form-label fw-semibold">
+                            Giới tính
+                        </label>
+                        <select class="form-select" id="add_customer_gender" name="gender">
+                            <option value="">-- Chọn giới tính --</option>
+                            <option value="male">Nam</option>
+                            <option value="female">Nữ</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check me-1"></i>Thêm khách hàng
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal sửa thông tin khách hàng -->
 <div class="modal fade" id="editCustomerModal" tabindex="-1" aria-labelledby="editCustomerModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -217,6 +278,47 @@ view('layouts.AdminLayout', [
 
 <script>
 const bookingId = <?= $booking['id'] ?? 0 ?>;
+
+function showAddCustomerModal() {
+    // Reset form
+    const form = document.getElementById('addCustomerForm');
+    form.reset();
+    // Đảm bảo booking_id luôn được set
+    const bookingIdInput = form.querySelector('input[name="booking_id"]');
+    if (bookingIdInput) {
+        bookingIdInput.value = bookingId;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
+    modal.show();
+}
+
+// Xử lý submit form thêm khách hàng
+document.getElementById('addCustomerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('<?= BASE_URL ?>admin/bookings/add-customer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Thêm khách hàng thành công!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addCustomerModal'));
+            modal.hide();
+            location.reload();
+        } else {
+            alert('Lỗi: ' + (data.message || 'Không thể thêm khách hàng.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Lỗi khi thêm khách hàng. Vui lòng thử lại.');
+    });
+});
 
 function editCustomer(customerId, name, phone, email, gender) {
     document.getElementById('edit_customer_id').value = customerId;

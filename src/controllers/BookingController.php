@@ -1834,6 +1834,28 @@ class BookingController
                 exit;
             }
 
+            // Kiểm tra trùng số điện thoại trong cùng booking
+            if (!empty($phone)) {
+                $phoneCheckStmt = $pdo->prepare('SELECT id, name FROM booking_customers WHERE booking_id = :booking_id AND phone = :phone LIMIT 1');
+                $phoneCheckStmt->execute(['booking_id' => $bookingId, 'phone' => $phone]);
+                $existingPhone = $phoneCheckStmt->fetch();
+                if ($existingPhone) {
+                    echo json_encode(['success' => false, 'message' => 'Số điện thoại "' . htmlspecialchars($phone) . '" đã được sử dụng bởi khách hàng "' . htmlspecialchars($existingPhone['name']) . '" trong booking này.']);
+                    exit;
+                }
+            }
+
+            // Kiểm tra trùng email trong cùng booking
+            if (!empty($email)) {
+                $emailCheckStmt = $pdo->prepare('SELECT id, name FROM booking_customers WHERE booking_id = :booking_id AND email = :email LIMIT 1');
+                $emailCheckStmt->execute(['booking_id' => $bookingId, 'email' => $email]);
+                $existingEmail = $emailCheckStmt->fetch();
+                if ($existingEmail) {
+                    echo json_encode(['success' => false, 'message' => 'Email "' . htmlspecialchars($email) . '" đã được sử dụng bởi khách hàng "' . htmlspecialchars($existingEmail['name']) . '" trong booking này.']);
+                    exit;
+                }
+            }
+
             // Thêm khách hàng
             $stmt = $pdo->prepare('INSERT INTO booking_customers 
                 (booking_id, name, phone, gender, email) 
@@ -2212,6 +2234,36 @@ class BookingController
             if (!$checkStmt->fetch()) {
                 echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại hoặc không thuộc booking này.']);
                 exit;
+            }
+
+            // Kiểm tra trùng số điện thoại trong cùng booking (trừ chính khách hàng đang sửa)
+            if (!empty($phone)) {
+                $phoneCheckStmt = $pdo->prepare('SELECT id, name FROM booking_customers WHERE booking_id = :booking_id AND phone = :phone AND id != :customer_id LIMIT 1');
+                $phoneCheckStmt->execute([
+                    'booking_id' => $bookingId, 
+                    'phone' => $phone,
+                    'customer_id' => $customerId
+                ]);
+                $existingPhone = $phoneCheckStmt->fetch();
+                if ($existingPhone) {
+                    echo json_encode(['success' => false, 'message' => 'Số điện thoại "' . htmlspecialchars($phone) . '" đã được sử dụng bởi khách hàng "' . htmlspecialchars($existingPhone['name']) . '" trong booking này.']);
+                    exit;
+                }
+            }
+
+            // Kiểm tra trùng email trong cùng booking (trừ chính khách hàng đang sửa)
+            if (!empty($email)) {
+                $emailCheckStmt = $pdo->prepare('SELECT id, name FROM booking_customers WHERE booking_id = :booking_id AND email = :email AND id != :customer_id LIMIT 1');
+                $emailCheckStmt->execute([
+                    'booking_id' => $bookingId, 
+                    'email' => $email,
+                    'customer_id' => $customerId
+                ]);
+                $existingEmail = $emailCheckStmt->fetch();
+                if ($existingEmail) {
+                    echo json_encode(['success' => false, 'message' => 'Email "' . htmlspecialchars($email) . '" đã được sử dụng bởi khách hàng "' . htmlspecialchars($existingEmail['name']) . '" trong booking này.']);
+                    exit;
+                }
             }
 
             // Cập nhật thông tin khách hàng

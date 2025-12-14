@@ -479,9 +479,9 @@ class GuideController
         if ($guideId) {
             try {
                 $confStmt = $pdo->prepare('
-                    SELECT booking_id, confirmed, confirmed_at 
+                    SELECT booking_id, confirmed, confirmed_at, status
                     FROM guide_tour_confirmations 
-                    WHERE guide_id = :guide_id
+                    WHERE guide_id = :guide_id AND confirmed = 1
                 ');
                 $confStmt->execute(['guide_id' => $guideId]);
                 $confirmations = $confStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -755,9 +755,9 @@ class GuideController
 
             if ($confirmed) {
                 $stmt = $pdo->prepare('
-                    INSERT INTO guide_tour_confirmations (booking_id, guide_id, confirmed, status, created_at)
-                    VALUES (:booking_id, :guide_id, 1, "pending", NOW())
-                    ON DUPLICATE KEY UPDATE confirmed = 1, status = "pending", updated_at = NOW()
+                    INSERT INTO guide_tour_confirmations (booking_id, guide_id, confirmed, status, confirmed_at, created_at)
+                    VALUES (:booking_id, :guide_id, 1, "approved", NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE confirmed = 1, status = "approved", confirmed_at = NOW(), updated_at = NOW()
                 ');
             } else {
                 $stmt = $pdo->prepare('
@@ -772,7 +772,8 @@ class GuideController
                 'guide_id' => $guideId,
             ]);
 
-            header('Location: ' . BASE_URL . 'admin/tours&success=' . urlencode('Đã gửi yêu cầu xác nhận tour. Vui lòng chờ admin duyệt.'));
+            $message = $confirmed ? 'Đã xác nhận tour thành công!' : 'Đã hủy xác nhận tour.';
+            header('Location: ' . BASE_URL . 'admin/tours&success=' . urlencode($message));
         } catch (PDOException $e) {
             error_log('Confirm tour failed: ' . $e->getMessage());
             header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Không thể xác nhận tour.'));
@@ -1820,11 +1821,6 @@ class GuideController
                 exit;
             }
 
-            // Kiểm tra end_date đã qua chưa
-            if ($booking['end_date'] && strtotime($booking['end_date']) > strtotime('today')) {
-                header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Tour chưa đến ngày kết thúc.'));
-                exit;
-            }
 
             // Lấy ID của status "Hoàn thành"
             $statusStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
@@ -1840,6 +1836,22 @@ class GuideController
             // Kiểm tra đã hoàn thành chưa
             if ((int)$booking['status'] === $completedStatusId) {
                 header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Tour này đã được đánh dấu hoàn thành.'));
+                exit;
+            }
+
+            // Kiểm tra tour đã được xác nhận chưa
+            try {
+                $confirmationStmt = $pdo->prepare('SELECT confirmed FROM guide_tour_confirmations WHERE booking_id = :booking_id AND guide_id = :guide_id AND confirmed = 1 LIMIT 1');
+                $confirmationStmt->execute(['booking_id' => $bookingId, 'guide_id' => $guideId]);
+                $confirmation = $confirmationStmt->fetch();
+                
+                if (!$confirmation) {
+                    header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Vui lòng xác nhận tour trước khi đánh dấu hoàn thành.'));
+                    exit;
+                }
+            } catch (PDOException $e) {
+                error_log('Check confirmation failed: ' . $e->getMessage());
+                header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Không thể kiểm tra trạng thái xác nhận tour.'));
                 exit;
             }
 

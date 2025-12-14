@@ -61,16 +61,23 @@ class ReportController
 
                 // Thống kê doanh thu
                 try {
-                    $revenueQuery = $pdo->query('
+                    // Lấy ID của status "Hoàn thành"
+                    $completedStatusStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
+                    $completedStatusStmt->execute(['name' => '%Hoàn thành%']);
+                    $completedStatus = $completedStatusStmt->fetch();
+                    $completedStatusId = $completedStatus ? (int)$completedStatus['id'] : 4; // Mặc định là 4
+                    
+                    $revenueQuery = $pdo->prepare('
                         SELECT 
                             COALESCE(SUM(t.price), 0) as total_revenue,
                             COALESCE(SUM(CASE WHEN b.status = 1 OR b.status = 2 THEN t.price ELSE 0 END), 0) as confirmed_revenue,
-                            COALESCE(SUM(CASE WHEN b.status = 3 THEN t.price ELSE 0 END), 0) as completed_revenue,
+                            COALESCE(SUM(CASE WHEN b.status = :completed_status_id THEN t.price ELSE 0 END), 0) as completed_revenue,
                             COALESCE(SUM(CASE WHEN b.status = 0 THEN t.price ELSE 0 END), 0) as pending_revenue
                         FROM bookings b
                         INNER JOIN tours t ON b.tour_id = t.id
                         WHERE t.price IS NOT NULL
                     ');
+                    $revenueQuery->execute(['completed_status_id' => $completedStatusId]);
                     $revenueResult = $revenueQuery->fetch(PDO::FETCH_ASSOC);
                     $stats['total_revenue'] = isset($revenueResult['total_revenue']) ? (float)$revenueResult['total_revenue'] : 0;
                     $stats['confirmed_revenue'] = isset($revenueResult['confirmed_revenue']) ? (float)$revenueResult['confirmed_revenue'] : 0;

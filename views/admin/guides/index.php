@@ -107,6 +107,61 @@ ob_start();
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Thông báo tour đã hoàn thành gần đây -->
+        <?php if (!empty($recentCompletedTours)): ?>
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-check-circle-fill me-2"></i>Tour đã hoàn thành gần đây (7 ngày qua)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tour</th>
+                                <th>Hướng dẫn viên</th>
+                                <th>Ngày kết thúc</th>
+                                <th>Doanh thu</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentCompletedTours as $tour): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= htmlspecialchars($tour['tour_name'] ?? 'N/A') ?></strong>
+                                </td>
+                                <td><?= htmlspecialchars($tour['guide_name'] ?? 'N/A') ?></td>
+                                <td>
+                                    <?php if ($tour['end_date']): ?>
+                                        <?= date('d/m/Y', strtotime($tour['end_date'])) ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($tour['tour_price']): ?>
+                                        <strong class="text-success"><?= number_format($tour['tour_price'], 0, ',', '.') ?> ₫</strong>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-eye me-1"></i>Chi tiết
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 <?php

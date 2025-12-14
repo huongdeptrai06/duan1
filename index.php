@@ -74,6 +74,7 @@ match ($act) {
     'guides/add-note' => $guideController->addNote(),
     'guides/confirm-tour' => $guideController->confirmTour(),
     'guides/reject-tour' => $guideController->rejectTour(),
+    'guides/complete-tour' => $guideController->completeTour(),
     'guides/attendance' => $guideController->attendance(),
     'guides/attendance-detail' => $guideController->attendanceDetail(),
     'guides/save-attendance' => $guideController->saveAttendance(),
