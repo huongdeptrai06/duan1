@@ -144,6 +144,7 @@ class TourController
 
         // Nếu là HDV, lấy thêm dữ liệu cho dashboard
         $assignedBookings = [];
+        $completedBookings = [];
         $leaveRequests = [];
         $notes = [];
         $confirmationsMap = [];
@@ -177,8 +178,6 @@ class TourController
             }
 
             // Lấy danh sách booking được phân bổ
-            $assignedBookings = [];
-            $completedBookings = [];
             if ($guideId) {
                 try {
                     $bookingsStmt = $pdo->prepare('
