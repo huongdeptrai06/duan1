@@ -36,7 +36,21 @@ class TourController
                                 $guideStmt->execute(['user_id' => $currentUser->id]);
                                 $guide = $guideStmt->fetch();
                                 if ($guide) {
-                                    $query = 'SELECT DISTINCT t.*, c.name as category_name
+                                    $query = 'SELECT DISTINCT t.*, c.name as category_name,
+                                             (SELECT b.id FROM bookings b 
+                                              WHERE b.tour_id = t.id AND b.assigned_guide_id = :guide_id 
+                                              ORDER BY b.start_date DESC LIMIT 1) as booking_id,
+                                             (SELECT b.end_date FROM bookings b 
+                                              WHERE b.tour_id = t.id AND b.assigned_guide_id = :guide_id 
+                                              ORDER BY b.start_date DESC LIMIT 1) as booking_end_date,
+                                             (SELECT ts.id FROM bookings b 
+                                              LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                              WHERE b.tour_id = t.id AND b.assigned_guide_id = :guide_id 
+                                              ORDER BY b.start_date DESC LIMIT 1) as booking_status_id,
+                                             (SELECT ts.name FROM bookings b 
+                                              LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                              WHERE b.tour_id = t.id AND b.assigned_guide_id = :guide_id 
+                                              ORDER BY b.start_date DESC LIMIT 1) as booking_status_name
                                              FROM tours t
                                              LEFT JOIN categories c ON t.category_id = c.id
                                              INNER JOIN bookings b ON t.id = b.tour_id
@@ -49,7 +63,21 @@ class TourController
                                 }
                             } else {
                                 // Không có user_id, giả sử assigned_guide_id trỏ đến users.id
-                                $query = 'SELECT DISTINCT t.*, c.name as category_name
+                                $query = 'SELECT DISTINCT t.*, c.name as category_name,
+                                         (SELECT b.id FROM bookings b 
+                                          WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                          ORDER BY b.start_date DESC LIMIT 1) as booking_id,
+                                         (SELECT b.end_date FROM bookings b 
+                                          WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                          ORDER BY b.start_date DESC LIMIT 1) as booking_end_date,
+                                         (SELECT ts.id FROM bookings b 
+                                          LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                          WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                          ORDER BY b.start_date DESC LIMIT 1) as booking_status_id,
+                                         (SELECT ts.name FROM bookings b 
+                                          LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                          WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                          ORDER BY b.start_date DESC LIMIT 1) as booking_status_name
                                          FROM tours t
                                          LEFT JOIN categories c ON t.category_id = c.id
                                          INNER JOIN bookings b ON t.id = b.tour_id
@@ -60,7 +88,21 @@ class TourController
                         } catch (PDOException $e) {
                             error_log('Check guides structure failed: ' . $e->getMessage());
                             // Fallback: giả sử assigned_guide_id trỏ đến users.id
-                            $query = 'SELECT DISTINCT t.*, c.name as category_name
+                            $query = 'SELECT DISTINCT t.*, c.name as category_name,
+                                     (SELECT b.id FROM bookings b 
+                                      WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                      ORDER BY b.start_date DESC LIMIT 1) as booking_id,
+                                     (SELECT b.end_date FROM bookings b 
+                                      WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                      ORDER BY b.start_date DESC LIMIT 1) as booking_end_date,
+                                     (SELECT ts.id FROM bookings b 
+                                      LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                      WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                      ORDER BY b.start_date DESC LIMIT 1) as booking_status_id,
+                                     (SELECT ts.name FROM bookings b 
+                                      LEFT JOIN tour_statuses ts ON b.status = ts.id
+                                      WHERE b.tour_id = t.id AND b.assigned_guide_id = :user_id 
+                                      ORDER BY b.start_date DESC LIMIT 1) as booking_status_name
                                      FROM tours t
                                      LEFT JOIN categories c ON t.category_id = c.id
                                      INNER JOIN bookings b ON t.id = b.tour_id
@@ -135,6 +177,8 @@ class TourController
             }
 
             // Lấy danh sách booking được phân bổ
+            $assignedBookings = [];
+            $completedBookings = [];
             if ($guideId) {
                 try {
                     $bookingsStmt = $pdo->prepare('
@@ -142,6 +186,7 @@ class TourController
                                t.name as tour_name,
                                t.price as tour_price,
                                ts.name as status_name,
+                               ts.id as status_id,
                                u.name as customer_name
                         FROM bookings b
                         LEFT JOIN tours t ON b.tour_id = t.id
@@ -151,7 +196,16 @@ class TourController
                         ORDER BY b.start_date DESC, b.created_at DESC
                     ');
                     $bookingsStmt->execute(['guide_id' => $guideId]);
-                    $assignedBookings = $bookingsStmt->fetchAll(PDO::FETCH_ASSOC);
+                    $allBookings = $bookingsStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Tách tour đã hoàn thành và tour chưa hoàn thành
+                    foreach ($allBookings as $booking) {
+                        if (stripos($booking['status_name'] ?? '', 'Hoàn thành') !== false || (int)($booking['status_id'] ?? 0) === 4) {
+                            $completedBookings[] = $booking;
+                        } else {
+                            $assignedBookings[] = $booking;
+                        }
+                    }
                 } catch (PDOException $e) {
                     error_log('Get assigned bookings failed: ' . $e->getMessage());
                 }
@@ -187,9 +241,9 @@ class TourController
             if ($guideId) {
                 try {
                     $confStmt = $pdo->prepare('
-                        SELECT booking_id, confirmed, confirmed_at 
+                        SELECT booking_id, confirmed, confirmed_at, status
                         FROM guide_tour_confirmations 
-                        WHERE guide_id = :guide_id AND status = "approved"
+                        WHERE guide_id = :guide_id AND confirmed = 1
                     ');
                     $confStmt->execute(['guide_id' => $guideId]);
                     $confirmations = $confStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -226,6 +280,7 @@ class TourController
             'errors' => $errors,
             'isGuide' => $isGuide,
             'assignedBookings' => $assignedBookings,
+            'completedBookings' => $completedBookings,
             'leaveRequests' => $leaveRequests,
             'notes' => $notes,
             'confirmationsMap' => $confirmationsMap,

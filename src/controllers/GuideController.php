@@ -99,12 +99,47 @@ class GuideController
             // Bảng có thể chưa tồn tại hoặc có lỗi
         }
 
+        // Lấy danh sách tour đã hoàn thành gần đây (7 ngày qua)
+        $recentCompletedTours = [];
+        try {
+            
+            // Lấy tour đã hoàn thành trong 7 ngày qua
+            $completedStatusStmt = $db->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
+            $completedStatusStmt->execute(['name' => '%Hoàn thành%']);
+            $completedStatus = $completedStatusStmt->fetch();
+            
+            if ($completedStatus) {
+                $completedStatusId = (int)$completedStatus['id'];
+                $toursStmt = $db->prepare('
+                    SELECT b.*, 
+                           t.name as tour_name,
+                           t.price as tour_price,
+                           ts.name as status_name,
+                           u.name as guide_name,
+                           u.id as guide_id
+                    FROM bookings b
+                    LEFT JOIN tours t ON b.tour_id = t.id
+                    LEFT JOIN tour_statuses ts ON b.status = ts.id
+                    LEFT JOIN users u ON b.assigned_guide_id = u.id
+                    WHERE b.status = :status_id
+                        AND b.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    ORDER BY b.updated_at DESC
+                    LIMIT 10
+                ');
+                $toursStmt->execute(['status_id' => $completedStatusId]);
+                $recentCompletedTours = $toursStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } catch (PDOException $e) {
+            error_log('Get recent completed tours failed: ' . $e->getMessage());
+        }
+
         view('admin.guides.index', [
             'title' => 'Danh sách hướng dẫn viên',
             'pageTitle' => 'Danh sách hướng dẫn viên',
             'guides' => $guides,
             'pendingLeaveCounts' => $pendingLeaveCounts,
             'pendingLeaveRequests' => $pendingLeaveRequests,
+            'recentCompletedTours' => $recentCompletedTours,
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
         ]);
@@ -377,6 +412,7 @@ class GuideController
 
         // Lấy danh sách tour được phân bổ
         $assignedTours = [];
+        $completedTours = [];
         if ($guideId) {
             try {
                 $toursStmt = $pdo->prepare('
@@ -384,6 +420,7 @@ class GuideController
                            t.name as tour_name,
                            t.price as tour_price,
                            ts.name as status_name,
+                           ts.id as status_id,
                            u.name as customer_name
                     FROM bookings b
                     LEFT JOIN tours t ON b.tour_id = t.id
@@ -393,7 +430,16 @@ class GuideController
                     ORDER BY b.start_date DESC, b.created_at DESC
                 ');
                 $toursStmt->execute(['guide_id' => $guideId]);
-                $assignedTours = $toursStmt->fetchAll(PDO::FETCH_ASSOC);
+                $allTours = $toursStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Tách tour đã hoàn thành và tour chưa hoàn thành
+                foreach ($allTours as $tour) {
+                    if (stripos($tour['status_name'] ?? '', 'Hoàn thành') !== false || (int)($tour['status_id'] ?? 0) === 4) {
+                        $completedTours[] = $tour;
+                    } else {
+                        $assignedTours[] = $tour;
+                    }
+                }
             } catch (PDOException $e) {
                 error_log('Get assigned tours failed: ' . $e->getMessage());
                 $errors[] = 'Không thể tải danh sách tour được phân bổ.';
@@ -451,6 +497,7 @@ class GuideController
             'title' => 'Dashboard HDV',
             'pageTitle' => 'Dashboard HDV',
             'assignedTours' => $assignedTours,
+            'completedTours' => $completedTours,
             'leaveRequests' => $leaveRequests,
             'notes' => $notes,
             'confirmationsMap' => $confirmationsMap,
@@ -1709,5 +1756,171 @@ class GuideController
             header('Location: ' . BASE_URL . 'guides/attendance-detail&booking_id=' . $bookingId . '&error=' . urlencode('Không thể lưu điểm danh: ' . $e->getMessage()));
         }
         exit;
+    }
+
+    // Hướng dẫn viên đánh dấu tour hoàn thành
+    public function completeTour(): void
+    {
+        requireGuideOrAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'guides/dashboard');
+            exit;
+        }
+
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        
+        if ($bookingId <= 0) {
+            header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('ID booking không hợp lệ.'));
+            exit;
+        }
+
+        $pdo = getDB();
+        $currentUser = getCurrentUser();
+        
+        if ($pdo === null || !$currentUser) {
+            header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Không thể kết nối database.'));
+            exit;
+        }
+
+        // Lấy guide_id
+        $guideId = null;
+        $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+        
+        if ($guidesTableExists) {
+            try {
+                $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                $hasUserId = $checkStmt->fetch();
+                
+                if ($hasUserId) {
+                    $guideStmt = $pdo->prepare('SELECT id FROM guides WHERE user_id = :user_id LIMIT 1');
+                    $guideStmt->execute(['user_id' => $currentUser->id]);
+                    $guide = $guideStmt->fetch();
+                    if ($guide) {
+                        $guideId = $guide['id'];
+                    }
+                } else {
+                    $guideId = $currentUser->id;
+                }
+            } catch (PDOException $e) {
+                $guideId = $currentUser->id;
+            }
+        } else {
+            $guideId = $currentUser->id;
+        }
+
+        try {
+            // Kiểm tra booking có thuộc về guide này không
+            $checkStmt = $pdo->prepare('SELECT id, end_date, status FROM bookings WHERE id = :id AND assigned_guide_id = :guide_id LIMIT 1');
+            $checkStmt->execute(['id' => $bookingId, 'guide_id' => $guideId]);
+            $booking = $checkStmt->fetch();
+            
+            if (!$booking) {
+                header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Booking không tồn tại hoặc không thuộc về bạn.'));
+                exit;
+            }
+
+            // Kiểm tra end_date đã qua chưa
+            if ($booking['end_date'] && strtotime($booking['end_date']) > strtotime('today')) {
+                header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Tour chưa đến ngày kết thúc.'));
+                exit;
+            }
+
+            // Lấy ID của status "Hoàn thành"
+            $statusStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
+            $statusStmt->execute(['name' => '%Hoàn thành%']);
+            $completedStatus = $statusStmt->fetch();
+            
+            if (!$completedStatus) {
+                $completedStatusId = 4; // Mặc định ID = 4
+            } else {
+                $completedStatusId = (int)$completedStatus['id'];
+            }
+
+            // Kiểm tra đã hoàn thành chưa
+            if ((int)$booking['status'] === $completedStatusId) {
+                header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Tour này đã được đánh dấu hoàn thành.'));
+                exit;
+            }
+
+            // Cập nhật status thành hoàn thành
+            $updateStmt = $pdo->prepare('UPDATE bookings SET status = :status_id, updated_at = NOW() WHERE id = :id');
+            $updateStmt->execute(['status_id' => $completedStatusId, 'id' => $bookingId]);
+
+            header('Location: ' . BASE_URL . 'guides/dashboard&success=' . urlencode('Đã đánh dấu tour hoàn thành thành công!'));
+        } catch (PDOException $e) {
+            error_log('Complete tour failed: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Không thể đánh dấu tour hoàn thành.'));
+        }
+        exit;
+    }
+
+    // Tự động đánh dấu tour hoàn thành khi end_date đã qua (đã vô hiệu hóa)
+    private function autoCompleteTours($pdo): void
+    {
+        if ($pdo === null) {
+            return;
+        }
+
+        try {
+            // Lấy ID của status "Hoàn thành"
+            $statusStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
+            $statusStmt->execute(['name' => '%Hoàn thành%']);
+            $completedStatus = $statusStmt->fetch();
+            
+            if (!$completedStatus) {
+                // Nếu không tìm thấy, thử dùng ID = 4 (theo thứ tự mặc định)
+                $completedStatusId = 4;
+            } else {
+                $completedStatusId = (int)$completedStatus['id'];
+            }
+
+            // Lấy danh sách status bị hủy để loại trừ
+            $cancelStatusIds = [];
+            try {
+                $cancelStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name1 OR name LIKE :name2');
+                $cancelStmt->execute(['name1' => '%Hủy%', 'name2' => '%Cancel%']);
+                $cancelStatuses = $cancelStmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($cancelStatuses as $cancel) {
+                    $cancelStatusIds[] = (int)$cancel['id'];
+                }
+            } catch (PDOException $e) {
+                // Bỏ qua nếu không tìm thấy
+            }
+
+            // Tìm các booking có end_date đã qua và chưa hoàn thành
+            if (empty($cancelStatusIds)) {
+                $updateStmt = $pdo->prepare('
+                    UPDATE bookings 
+                    SET status = :status_id, 
+                        updated_at = NOW()
+                    WHERE end_date IS NOT NULL 
+                        AND end_date < CURDATE()
+                        AND status != :status_id
+                ');
+                $updateStmt->execute(['status_id' => $completedStatusId]);
+            } else {
+                $placeholders = implode(',', array_fill(0, count($cancelStatusIds), '?'));
+                $updateStmt = $pdo->prepare('
+                    UPDATE bookings 
+                    SET status = :status_id, 
+                        updated_at = NOW()
+                    WHERE end_date IS NOT NULL 
+                        AND end_date < CURDATE()
+                        AND status != :status_id
+                        AND status NOT IN (' . $placeholders . ')
+                ');
+                $params = array_merge(['status_id' => $completedStatusId], $cancelStatusIds);
+                $updateStmt->execute($params);
+            }
+            
+            $updatedCount = $updateStmt->rowCount();
+            
+            if ($updatedCount > 0) {
+                error_log('Auto-completed ' . $updatedCount . ' tours');
+            }
+        } catch (PDOException $e) {
+            error_log('Auto-complete tours failed: ' . $e->getMessage());
+        }
     }
 }
