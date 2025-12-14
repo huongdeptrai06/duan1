@@ -421,7 +421,12 @@ class GuideController
                            t.price as tour_price,
                            ts.name as status_name,
                            ts.id as status_id,
-                           u.name as customer_name
+                           u.name as created_by_name,
+                           (SELECT bc.name 
+                            FROM booking_customers bc
+                            WHERE bc.booking_id = b.id
+                            ORDER BY bc.id ASC
+                            LIMIT 1) as representative_name
                     FROM bookings b
                     LEFT JOIN tours t ON b.tour_id = t.id
                     LEFT JOIN tour_statuses ts ON b.status = ts.id
@@ -978,6 +983,7 @@ class GuideController
         $pendingConfirmations = [];
         $pendingRejections = [];
         $attendanceReports = []; // Danh sách điểm danh đã thực hiện
+        $recentCompletedTours = []; // Danh sách tour đã hoàn thành gần đây
 
         try {
             // Tạo các bảng nếu chưa tồn tại
@@ -1276,6 +1282,88 @@ class GuideController
                 $attendanceReports = [];
             }
 
+            // Lấy danh sách tour đã hoàn thành gần đây (7 ngày qua)
+            try {
+                // Lấy ID của status "Hoàn thành"
+                $completedStatusId = 4; // Mặc định
+                $statusStmt = $pdo->prepare('SELECT id FROM tour_statuses WHERE name LIKE :name ORDER BY id LIMIT 1');
+                $statusStmt->execute(['name' => '%Hoàn thành%']);
+                $statusResult = $statusStmt->fetch();
+                if ($statusResult) {
+                    $completedStatusId = (int)$statusResult['id'];
+                }
+
+                // Kiểm tra xem bảng guides có tồn tại và có cột user_id không
+                $guidesTableExists = $pdo->query("SHOW TABLES LIKE 'guides'")->fetch();
+                $hasUserId = false;
+                
+                if ($guidesTableExists) {
+                    try {
+                        $checkStmt = $pdo->query("SHOW COLUMNS FROM guides LIKE 'user_id'");
+                        $hasUserId = (bool)$checkStmt->fetch();
+                    } catch (PDOException $e) {
+                        // Bỏ qua
+                    }
+                }
+
+                if ($guidesTableExists && $hasUserId) {
+                    // Nếu có bảng guides và có user_id
+                    $completedStmt = $pdo->prepare('
+                        SELECT b.*,
+                               t.name as tour_name,
+                               t.price as tour_price,
+                               COALESCE(g.full_name, u.name) as guide_name,
+                               ts.name as status_name,
+                               u_created.name as created_by_name,
+                               (SELECT bc.name 
+                                FROM booking_customers bc
+                                WHERE bc.booking_id = b.id
+                                ORDER BY bc.id ASC
+                                LIMIT 1) as representative_name
+                        FROM bookings b
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN tour_statuses ts ON b.status = ts.id
+                        LEFT JOIN guides g ON b.assigned_guide_id = g.id
+                        LEFT JOIN users u ON g.user_id = u.id AND u.role = "huong_dan_vien"
+                        LEFT JOIN users u_created ON b.created_by = u_created.id
+                        WHERE b.status = :completed_status_id
+                          AND b.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                        ORDER BY b.updated_at DESC
+                        LIMIT 20
+                    ');
+                } else {
+                    // Nếu không có bảng guides hoặc không có user_id, join trực tiếp với users
+                    $completedStmt = $pdo->prepare('
+                        SELECT b.*,
+                               t.name as tour_name,
+                               t.price as tour_price,
+                               u.name as guide_name,
+                               ts.name as status_name,
+                               u_created.name as created_by_name,
+                               (SELECT bc.name 
+                                FROM booking_customers bc
+                                WHERE bc.booking_id = b.id
+                                ORDER BY bc.id ASC
+                                LIMIT 1) as representative_name
+                        FROM bookings b
+                        LEFT JOIN tours t ON b.tour_id = t.id
+                        LEFT JOIN tour_statuses ts ON b.status = ts.id
+                        LEFT JOIN users u ON b.assigned_guide_id = u.id AND u.role = "huong_dan_vien"
+                        LEFT JOIN users u_created ON b.created_by = u_created.id
+                        WHERE b.status = :completed_status_id
+                          AND b.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                        ORDER BY b.updated_at DESC
+                        LIMIT 20
+                    ');
+                }
+                
+                $completedStmt->execute(['completed_status_id' => $completedStatusId]);
+                $recentCompletedTours = $completedStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                error_log('Get recent completed tours failed: ' . $e->getMessage());
+                $recentCompletedTours = [];
+            }
+
         } catch (PDOException $e) {
             error_log('Get pending requests failed: ' . $e->getMessage());
             $errors[] = 'Không thể tải danh sách yêu cầu.';
@@ -1286,6 +1374,7 @@ class GuideController
             'pageTitle' => 'Quản lý yêu cầu HDV',
             'pendingLeaveRequests' => $pendingLeaveRequests,
             'pendingNotes' => $pendingNotes,
+            'recentCompletedTours' => $recentCompletedTours,
             'pendingConfirmations' => $pendingConfirmations,
             'pendingRejections' => $pendingRejections,
             'attendanceReports' => $attendanceReports,
@@ -1859,7 +1948,20 @@ class GuideController
             $updateStmt = $pdo->prepare('UPDATE bookings SET status = :status_id, updated_at = NOW() WHERE id = :id');
             $updateStmt->execute(['status_id' => $completedStatusId, 'id' => $bookingId]);
 
-            header('Location: ' . BASE_URL . 'guides/dashboard&success=' . urlencode('Đã đánh dấu tour hoàn thành thành công!'));
+            // Kiểm tra referer để redirect về đúng trang
+            $referer = $_SERVER['HTTP_REFERER'] ?? '';
+            $redirectUrl = BASE_URL . 'guides/dashboard';
+            
+            // Nếu đến từ trang admin/tours hoặc admin/bookings, redirect về đó
+            if (strpos($referer, 'admin/tours') !== false) {
+                $redirectUrl = BASE_URL . 'admin/tours&success=' . urlencode('Đã đánh dấu tour hoàn thành thành công!');
+            } elseif (strpos($referer, 'admin/bookings') !== false) {
+                $redirectUrl = BASE_URL . 'admin/bookings&success=' . urlencode('Đã đánh dấu tour hoàn thành thành công!');
+            } else {
+                $redirectUrl = BASE_URL . 'guides/dashboard&success=' . urlencode('Đã đánh dấu tour hoàn thành thành công!');
+            }
+            
+            header('Location: ' . $redirectUrl);
         } catch (PDOException $e) {
             error_log('Complete tour failed: ' . $e->getMessage());
             header('Location: ' . BASE_URL . 'guides/dashboard&error=' . urlencode('Không thể đánh dấu tour hoàn thành.'));

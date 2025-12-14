@@ -374,6 +374,78 @@ ob_start();
                     <?php endif; ?>
                 </div>
 
+                <!-- Tour đã hoàn thành gần đây -->
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-check-circle-fill me-2 text-success"></i>
+                        Tour đã hoàn thành gần đây (<?= count($recentCompletedTours ?? []) ?>)
+                    </h5>
+                    <?php if (empty($recentCompletedTours ?? [])): ?>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>Chưa có tour nào được hoàn thành trong 7 ngày qua.
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tour</th>
+                                        <th>Khách hàng</th>
+                                        <th>Hướng dẫn viên</th>
+                                        <th>Ngày khởi hành</th>
+                                        <th>Ngày kết thúc</th>
+                                        <th>Doanh thu</th>
+                                        <th>Ngày hoàn thành</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($recentCompletedTours as $tour): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?= htmlspecialchars($tour['tour_name'] ?? 'N/A') ?></strong>
+                                        </td>
+                                        <td><?= htmlspecialchars($tour['representative_name'] ?? $tour['created_by_name'] ?? 'N/A') ?></td>
+                                        <td><strong><?= htmlspecialchars($tour['guide_name'] ?? 'Chưa phân bổ') ?></strong></td>
+                                        <td>
+                                            <?php if ($tour['start_date']): ?>
+                                                <?= date('d/m/Y', strtotime($tour['start_date'])) ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">Chưa có</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($tour['end_date']): ?>
+                                                <?= date('d/m/Y', strtotime($tour['end_date'])) ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">Chưa có</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <strong class="text-success">
+                                                <?= number_format($tour['tour_price'] ?? 0, 0, ',', '.') ?> ₫
+                                            </strong>
+                                        </td>
+                                        <td>
+                                            <?php if ($tour['updated_at']): ?>
+                                                <?= date('d/m/Y H:i', strtotime($tour['updated_at'])) ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <a href="<?= BASE_URL ?>admin/bookings/show&id=<?= $tour['id'] ?>" class="btn btn-sm btn-outline-info" title="Xem chi tiết">
+                                                <i class="bi bi-eye me-1"></i>Chi tiết
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
                 <!-- Báo cáo điểm danh -->
                 <div class="mb-4">
                     <h5 class="mb-3">

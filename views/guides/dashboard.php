@@ -186,7 +186,7 @@ ob_start();
                                         <br><small class="text-muted"><?= number_format($tour['tour_price'], 0, ',', '.') ?> ₫</small>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= htmlspecialchars($tour['customer_name'] ?? 'N/A') ?></td>
+                                <td><?= htmlspecialchars($tour['representative_name'] ?? $tour['created_by_name'] ?? 'N/A') ?></td>
                                 <td>
                                     <?php if ($tour['start_date']): ?>
                                         <?= date('d/m/Y', strtotime($tour['start_date'])) ?>
@@ -290,7 +290,7 @@ ob_start();
                                         <br><small class="text-muted"><?= number_format($tour['tour_price'], 0, ',', '.') ?> ₫</small>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= htmlspecialchars($tour['customer_name'] ?? 'N/A') ?></td>
+                                <td><?= htmlspecialchars($tour['representative_name'] ?? $tour['created_by_name'] ?? 'N/A') ?></td>
                                 <td>
                                     <?php if ($tour['start_date']): ?>
                                         <?= date('d/m/Y', strtotime($tour['start_date'])) ?>

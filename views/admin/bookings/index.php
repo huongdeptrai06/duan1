@@ -113,7 +113,20 @@ ob_start();
                                         </td>
                                         <td>
                                             <?php if ($booking['status_name']): ?>
-                                                <span class="badge bg-info"><?= htmlspecialchars($booking['status_name']) ?></span>
+                                                <?php 
+                                                $statusName = strtolower($booking['status_name']);
+                                                $badgeClass = 'bg-info';
+                                                if (stripos($statusName, 'hoàn thành') !== false || stripos($statusName, 'completed') !== false) {
+                                                    $badgeClass = 'bg-success';
+                                                } elseif (stripos($statusName, 'hủy') !== false || stripos($statusName, 'cancelled') !== false) {
+                                                    $badgeClass = 'bg-danger';
+                                                } elseif (stripos($statusName, 'chờ') !== false || stripos($statusName, 'pending') !== false) {
+                                                    $badgeClass = 'bg-warning text-dark';
+                                                } elseif (stripos($statusName, 'đã xác nhận') !== false || stripos($statusName, 'confirmed') !== false) {
+                                                    $badgeClass = 'bg-primary';
+                                                }
+                                                ?>
+                                                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($booking['status_name']) ?></span>
                                             <?php else: ?>
                                                 <span class="badge bg-secondary">Chưa có</span>
                                             <?php endif; ?>

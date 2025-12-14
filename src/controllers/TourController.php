@@ -186,7 +186,12 @@ class TourController
                                t.price as tour_price,
                                ts.name as status_name,
                                ts.id as status_id,
-                               u.name as customer_name
+                               u.name as created_by_name,
+                               (SELECT bc.name 
+                                FROM booking_customers bc
+                                WHERE bc.booking_id = b.id
+                                ORDER BY bc.id ASC
+                                LIMIT 1) as representative_name
                         FROM bookings b
                         LEFT JOIN tours t ON b.tour_id = t.id
                         LEFT JOIN tour_statuses ts ON b.status = ts.id
